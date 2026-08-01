@@ -103,5 +103,84 @@ def admin_panel():
         flash(f"Error: {str(e)}", "error")
         return redirect(url_for("index"))
 
+@app.route("/papers")
+def papers_library():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    params = {}
+    for key in ["topic", "year", "author", "research_area", "search"]:
+        val = request.args.get(key)
+        if val:
+            params[key] = val
+    
+    papers = []
+    try:
+        response = httpx.get(f"{API_BASE_URL}/papers/", headers=headers, params=params)
+        if response.status_code == 200:
+            papers = response.json()
+    except Exception as e:
+        flash(f"Error fetching papers: {str(e)}", "error")
+
+    return render_template("papers.html", user=session.get("user"), papers=papers, filters=request.args)
+
+
+@app.route("/papers/upload", methods=["POST"])
+def upload_paper_route():
+    if "token" not in session:
+        return redirect(url_for("login"))
+
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    
+    data = {
+        "title": request.form.get("title"),
+        "author": request.form.get("author"),
+        "year": request.form.get("year") or None,
+        "topic": request.form.get("topic"),
+        "research_area": request.form.get("research_area"),
+        "tags": request.form.get("tags")
+    }
+    
+    files = None
+    if "file" in request.files and request.files["file"].filename != "":
+        file_obj = request.files["file"]
+        files = {"file": (file_obj.filename, file_obj.stream.read(), file_obj.content_type)}
+
+    try:
+        response = httpx.post(f"{API_BASE_URL}/papers/upload", headers=headers, data=data, files=files)
+        if response.status_code == 200:
+            flash("Paper uploaded successfully to your library!", "success")
+        else:
+            err = response.json().get("detail", "Upload failed")
+            flash(f"Upload failed: {err}", "error")
+    except Exception as e:
+        flash(f"Error uploading paper: {str(e)}", "error")
+
+    return redirect(url_for("papers_library"))
+
+
+@app.route("/papers/<int:paper_id>/file")
+def download_paper(paper_id):
+    if "token" not in session:
+        return redirect(url_for("login"))
+
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    try:
+        backend_res = httpx.get(f"{API_BASE_URL}/papers/{paper_id}/file", headers=headers)
+        if backend_res.status_code == 200:
+            from flask import Response
+            return Response(
+                backend_res.content,
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f"inline; filename=paper_{paper_id}.pdf"}
+            )
+        else:
+            flash("PDF file not found or unavailable.", "error")
+    except Exception as e:
+        flash(f"Error: {str(e)}", "error")
+
+    return redirect(url_for("papers_library"))
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import auth, admin, dashboard
+from app.routers import auth, admin, dashboard , papers
 
 Base.metadata.create_all(bind=engine)
 
@@ -18,6 +18,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(dashboard.router)
+app.include_router(papers.router)
 @app.get("/")
 def read_root():
     return {"status": "FastAPI Backend is running"}
