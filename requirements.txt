@@ -1,13 +1,13 @@
 # Backend (FastAPI)
-fastapi==0.110.0
-uvicorn==0.27.1
+fastapi
+uvicorn
 SQLAlchemy==2.0.28
-psycopg2-binary==2.9.9
+psycopg2-binary
 pgvector==0.2.5
 PyJWT==2.8.0
 python-multipart==0.0.9
 python-dotenv==1.0.1
-pydantic==2.6.3
+pydantic
 pypdf2==3.0.1
 
 # Frontend (Flask)
