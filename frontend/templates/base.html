@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research AI - AI Research Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#C5D1D5] text-slate-900 font-sans antialiased min-h-screen">
+    <div class="flex min-h-screen">
+        
+        {% if session.get('user') %}
+        <!-- Left Navigation Sidebar -->
+        <aside class="w-64 bg-[#E0F7FA] border-r border-teal-100 flex flex-col justify-between p-5 flex-shrink-0 min-h-screen sticky top-0 h-screen">
+            <div>
+                <!-- Brand Title -->
+                <div class="mb-8 px-2">
+                    <h1 class="text-2xl font-black text-[#5B3DF5] tracking-tight">Research AI</h1>
+                    <p class="text-xs font-bold text-slate-500">AI Research Assistant</p>
+                </div>
+
+                <!-- Nav Items -->
+                <nav class="space-y-3">
+                    {% set path = request.path %}
+                    
+                    <a href="/" class="flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-bold transition {% if path == '/' %}bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF] shadow-sm{% else %}bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-white{% endif %}">
+                        <span class="text-lg">🎛️</span> Dashboard
+                    </a>
+
+                    <a href="/papers" class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:bg-white transition text-sm font-bold">
+                        <span class="text-lg">📄</span> Paper Library
+                    </a>
+
+                    <a href="/assistant" class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:bg-white transition text-sm font-bold">
+                        <span class="text-lg">🤖</span> AI Assistant
+                    </a>
+
+                    <a href="/literature" class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:bg-white transition text-sm font-bold">
+                        <span class="text-lg">📖</span> Literature Review
+                    </a>
+
+                    <a href="/projects" class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:bg-white transition text-sm font-bold">
+                        <span class="text-lg">⚙️</span> Projects
+                    </a>
+
+                    <a href="/journal" class="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/70 text-slate-700 hover:bg-white transition text-sm font-bold">
+                        <span class="text-lg">📝</span> Journal
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Profile Footer -->
+            <div class="flex items-center justify-between p-3 bg-white/70 rounded-xl border border-slate-200">
+                <div class="truncate">
+                    <p class="text-sm font-bold text-slate-900 truncate">{{ session['user']['name'] }}</p>
+                    <p class="text-xs text-slate-500 font-medium">{{ session['user']['subscription_tier'] }} Plan</p>
+                </div>
+                <a href="/logout" title="Logout" class="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                    🚪
+                </a>
+            </div>
+        </aside>
+        {% endif %}
+
+        <!-- Main Dashboard Content -->
+        <main class="flex-1 p-8 overflow-y-auto">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="max-w-7xl mx-auto mb-6">
+                        {% for category, message in messages %}
+                            <div class="p-4 text-sm rounded-xl border {% if category == 'error' %}bg-red-50 text-red-700 border-red-200{% else %}bg-emerald-50 text-emerald-700 border-emerald-200{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

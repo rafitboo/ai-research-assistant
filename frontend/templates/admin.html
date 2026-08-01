@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-bold text-slate-900">Platform Admin Panel</h1>
+    
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Total Users</span>
+            <p class="text-2xl font-bold text-slate-800 mt-1">{{ stats.total_users }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Total Papers</span>
+            <p class="text-2xl font-bold text-slate-800 mt-1">{{ stats.total_papers }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">Total Projects</span>
+            <p class="text-2xl font-bold text-slate-800 mt-1">{{ stats.total_projects }}</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <span class="text-xs font-semibold text-slate-400 uppercase">AI Request Volume</span>
+            <p class="text-2xl font-bold text-slate-800 mt-1">{{ stats.ai_request_volume }}</p>
+        </div>
+    </div>
+
+    <!-- User Management Table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200">
+            <h2 class="text-lg font-bold text-slate-900">User Role & Subscription Management</h2>
+        </div>
+        <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-3">ID</th>
+                    <th class="px-6 py-3">Name</th>
+                    <th class="px-6 py-3">Email</th>
+                    <th class="px-6 py-3">Role</th>
+                    <th class="px-6 py-3">Tier</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+                {% for u in users %}
+                <tr>
+                    <td class="px-6 py-4 font-mono text-xs">{{ u.id }}</td>
+                    <td class="px-6 py-4 font-medium">{{ u.name }}</td>
+                    <td class="px-6 py-4 text-slate-500">{{ u.email }}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 bg-slate-100 rounded text-xs font-semibold">{{ u.role }}</span></td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 {% if u.subscription_tier == 'Premium' %}bg-amber-100 text-amber-800{% else %}bg-slate-100 text-slate-700{% endif %} rounded text-xs font-semibold">{{ u.subscription_tier }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
