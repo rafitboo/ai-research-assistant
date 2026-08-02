@@ -182,5 +182,52 @@ def download_paper(paper_id):
 
     return redirect(url_for("papers_library"))
 
+
+
+@app.route("/projects")
+def projects_list():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    projects = []
+    try:
+        response = httpx.get(f"{API_BASE_URL}/projects/", headers=headers)
+        if response.status_code == 200:
+            projects = response.json()
+    except Exception as e:
+        flash(f"Error loading projects: {str(e)}", "error")
+
+    return render_template("projects.html", user=session.get("user"), projects=projects)
+
+
+@app.route("/projects/create", methods=["POST"])
+def create_project_route():
+    if "token" not in session:
+        return redirect(url_for("login"))
+
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    title = request.form.get("title")
+    description = request.form.get("description")
+
+    payload = {
+        "title": title,
+        "description": description
+    }
+
+    try:
+        response = httpx.post(f"{API_BASE_URL}/projects/create", headers=headers, json=payload)
+        if response.status_code == 200:
+            flash(f"Project '{title}' created successfully!", "success")
+        else:
+            err = response.json().get("detail", "Failed to create project")
+            flash(f"Error: {err}", "error")
+    except Exception as e:
+        flash(f"Error: {str(e)}", "error")
+
+    return redirect(url_for("projects_list"))
+
+
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
