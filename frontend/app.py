@@ -1,10 +1,13 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import httpx
+from reading_progress_routes import reading_progress_bp
 
 app = Flask(__name__)
 app.secret_key = "cse471_super_secret_flask_key_bracu"
 
 API_BASE_URL = "http://127.0.0.1:8000/api"
+
+app.register_blueprint(reading_progress_bp)  
 
 @app.route("/")
 def index():

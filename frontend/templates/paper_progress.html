@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6 max-w-4xl mx-auto">
+    <a href="/papers" class="text-sm font-bold text-slate-500 hover:text-slate-800">&larr; Back to Paper Library</a>
+
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-extrabold text-slate-900">{{ paper.title }}</h1>
+                {% if paper.author %}
+                <p class="text-sm text-slate-500 font-medium mt-1">👤 {{ paper.author }}</p>
+                {% endif %}
+            </div>
+            <span id="status-badge"
+                  class="shrink-0 text-xs font-bold px-2.5 py-1 rounded-full
+                  {% if paper.reading_status == 'Completed' %}bg-emerald-100 text-emerald-800
+                  {% elif paper.reading_status == 'Reading' %}bg-amber-100 text-amber-800
+                  {% else %}bg-slate-100 text-slate-600{% endif %}">
+                {{ paper.reading_status }}
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm pt-4 border-t border-slate-100">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                <select id="status-select" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="Unread" {% if paper.reading_status == 'Unread' %}selected{% endif %}>Unread</option>
+                    <option value="Reading" {% if paper.reading_status == 'Reading' %}selected{% endif %}>Reading</option>
+                    <option value="Completed" {% if paper.reading_status == 'Completed' %}selected{% endif %}>Completed</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Read Percentage
+                    {% if paper.file_path %}<span class="normal-case font-medium text-slate-400">(auto)</span>{% endif %}
+                </label>
+                <div class="flex items-center gap-2">
+                    <input id="percentage-slider" type="range" min="0" max="100"
+                           value="{{ paper.read_percentage }}"
+                           {% if paper.file_path %}disabled{% endif %}
+                           class="w-full {% if paper.file_path %}opacity-60 cursor-not-allowed{% endif %}" />
+                    <span id="percentage-label" class="text-slate-700 font-bold w-10 text-right">{{ paper.read_percentage }}%</span>
+                </div>
+                {% if paper.file_path %}
+                <p id="page-indicator" class="text-xs text-slate-400 mt-1">Loading PDF…</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Time Spent</label>
+                <p id="time-spent" class="font-bold text-slate-800 pt-2">
+                    {% set h = (paper.time_spent_seconds // 3600) %}
+                    {% set m = ((paper.time_spent_seconds % 3600) // 60) %}
+                    {% if h %}{{ h }}h {{ m }}m{% elif m %}{{ m }}m{% else %}{{ paper.time_spent_seconds }}s{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="w-full bg-slate-100 rounded-full h-2">
+            <div id="progress-bar" class="bg-[#5B3DF5] h-2 rounded-full transition-all" style="width: {{ paper.read_percentage }}%;"></div>
+        </div>
+
+        {% if paper.file_path %}
+        <p class="text-xs text-slate-400">
+            Percentage updates automatically as you scroll through the PDF below.
+            Time is tracked while this page stays open and visible.
+        </p>
+        {% else %}
+        <p class="text-xs text-slate-400">
+            No PDF attached to this paper, so percentage can't be auto-tracked — use the slider above.
+            Time is still tracked automatically while this page stays open and visible.
+        </p>
+        {% endif %}
+    </div>
+
+    {% if paper.file_path %}
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div id="pdf-container" class="h-[75vh] overflow-y-auto bg-slate-50 px-4 py-4 space-y-4">
+            <p class="text-center text-slate-400 text-sm py-12">Loading PDF…</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if paper.file_path %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+{% endif %}
+<script>
+(function () {
+  const paperId = {{ paper.id }};
+  const HEARTBEAT_INTERVAL_MS = 30000;
+  const hasFile = {{ 'true' if paper.file_path else 'false' }};
+
+  let sessionId = null;
+  let secondsSinceLastBeat = 0;
+  let tickTimer = null;
+  let heartbeatTimer = null;
+  let currentPercentage = {{ paper.read_percentage }};
+  let lastPersistedPercentage = {{ paper.read_percentage }};
+
+  const statusSelect = document.getElementById("status-select");
+  const slider = document.getElementById("percentage-slider");
+  const percentageLabel = document.getElementById("percentage-label");
+  const progressBar = document.getElementById("progress-bar");
+  const statusBadge = document.getElementById("status-badge");
+  const timeSpentEl = document.getElementById("time-spent");
+  const pageIndicator = document.getElementById("page-indicator");
+
+  function formatTime(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m`;
+    return `${totalSeconds}s`;
+  }
+
+  function setStatus(status) {
+    const styles = {
+      Unread: ["bg-slate-100", "text-slate-600"],
+      Reading: ["bg-amber-100", "text-amber-800"],
+      Completed: ["bg-emerald-100", "text-emerald-800"],
+    };
+    const [bg, text] = styles[status] || styles.Unread;
+    statusBadge.className = `shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${bg} ${text}`;
+    statusBadge.textContent = status;
+    statusSelect.value = status;
+  }
+
+  function updatePercentageUI(pct) {
+    slider.value = pct;
+    percentageLabel.textContent = `${pct}%`;
+    progressBar.style.width = `${pct}%`;
+    if (pct >= 100) setStatus("Completed");
+    else if (pct > 0 && statusBadge.textContent.trim() === "Unread") setStatus("Reading");
+  }
+
+  // --- Session + heartbeat plumbing (same as before, now also carries % ) ---
+  async function startSession() {
+    const res = await fetch(`/papers/${paperId}/reading-sessions`, { method: "POST" });
+    if (!res.ok) return;
+    const data = await res.json();
+    sessionId = data.session_id;
+  }
+
+  async function sendHeartbeat(forcePercentage) {
+    if (!sessionId) return;
+    const elapsed = secondsSinceLastBeat;
+    const shouldSendPercentage = forcePercentage || currentPercentage !== lastPersistedPercentage;
+    if (elapsed === 0 && !shouldSendPercentage) return;
+
+    secondsSinceLastBeat = 0;
+    const payload = { seconds_elapsed: Math.max(elapsed, 1) };
+    if (shouldSendPercentage) payload.read_percentage = currentPercentage;
+
+    const res = await fetch(`/papers/${paperId}/reading-sessions/${sessionId}/heartbeat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    lastPersistedPercentage = data.read_percentage;
+    currentPercentage = Math.max(currentPercentage, data.read_percentage);
+    timeSpentEl.textContent = formatTime(data.time_spent_seconds);
+    setStatus(data.reading_status);
+    updatePercentageUI(currentPercentage);
+  }
+
+  function endSessionOnUnload() {
+    if (!sessionId) return;
+    navigator.sendBeacon(`/papers/${paperId}/reading-sessions/${sessionId}/end`, new Blob());
+  }
+
+  async function patchProgress(payload) {
+    const res = await fetch(`/papers/${paperId}/progress`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setStatus(data.reading_status);
+    currentPercentage = data.read_percentage;
+    lastPersistedPercentage = data.read_percentage;
+    updatePercentageUI(currentPercentage);
+  }
+
+  statusSelect.addEventListener("change", (e) => {
+    patchProgress({ reading_status: e.target.value });
+  });
+
+  // Manual slider only matters when there's no PDF to auto-track from.
+  if (!hasFile) {
+    slider.addEventListener("input", () => {
+      currentPercentage = parseInt(slider.value, 10);
+      percentageLabel.textContent = `${currentPercentage}%`;
+      progressBar.style.width = `${currentPercentage}%`;
+    });
+    slider.addEventListener("change", () => {
+      patchProgress({ read_percentage: currentPercentage });
+    });
+  }
+
+  function startTicking() {
+    if (tickTimer) return;
+    tickTimer = setInterval(() => { secondsSinceLastBeat += 1; }, 1000);
+  }
+  function stopTicking() {
+    clearInterval(tickTimer);
+    tickTimer = null;
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { stopTicking(); sendHeartbeat(false); }
+    else { startTicking(); }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    sendHeartbeat(true);
+    endSessionOnUnload();
+  });
+
+  startSession().then(() => {
+    startTicking();
+    heartbeatTimer = setInterval(() => sendHeartbeat(false), HEARTBEAT_INTERVAL_MS);
+  });
+
+  // --- PDF.js embedded viewer + scroll-based percentage tracking ---
+  if (hasFile) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    const container = document.getElementById("pdf-container");
+    const pdfUrl = `/papers/${paperId}/file`;
+
+    let lastPatchSentAt = 0;
+
+    function maybePersistPercentage() {
+      // Debounced immediate save every time we cross a new 5% milestone,
+      // instead of waiting for the next 30s heartbeat.
+      const now = Date.now();
+      if (currentPercentage > lastPersistedPercentage && now - lastPatchSentAt > 4000) {
+        lastPatchSentAt = now;
+        patchProgress({ read_percentage: currentPercentage });
+      }
+    }
+
+    pdfjsLib.getDocument(pdfUrl).promise.then((pdfDoc) => {
+      container.innerHTML = "";
+      const numPages = pdfDoc.numPages;
+      pageIndicator.textContent = `Page 1 of ${numPages}`;
+
+      const renderPromises = [];
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        renderPromises.push(
+          pdfDoc.getPage(pageNum).then((page) => {
+            const viewport = page.getViewport({ scale: 1.2 });
+            const canvas = document.createElement("canvas");
+            canvas.className = "mx-auto shadow-sm bg-white";
+            canvas.dataset.pageNumber = pageNum;
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            container.appendChild(canvas);
+            const ctx = canvas.getContext("2d");
+            return page.render({ canvasContext: ctx, viewport }).promise;
+          })
+        );
+      }
+
+      Promise.all(renderPromises).then(() => {
+        // Restore prior progress by pre-computing a starting scroll position.
+        if (currentPercentage > 0) {
+          const maxScroll = container.scrollHeight - container.clientHeight;
+          container.scrollTop = (currentPercentage / 100) * maxScroll;
+        }
+
+        container.addEventListener("scroll", () => {
+          const maxScroll = container.scrollHeight - container.clientHeight;
+          const scrollPct = maxScroll > 0
+            ? Math.min(100, Math.round((container.scrollTop / maxScroll) * 100))
+            : 100;
+
+          currentPercentage = Math.max(currentPercentage, scrollPct);
+          updatePercentageUI(currentPercentage);
+
+          const currentPage = Math.min(
+            numPages,
+            Math.max(1, Math.round((currentPercentage / 100) * numPages) || 1)
+          );
+          pageIndicator.textContent = `Page ${currentPage} of ${numPages}`;
+
+          maybePersistPercentage();
+        });
+      });
+    }).catch((err) => {
+      container.innerHTML = `<p class="text-center text-red-500 text-sm py-12">Couldn't load PDF preview. You can still <a href="${pdfUrl}" target="_blank" class="underline font-bold">open it directly</a>.</p>`;
+      console.error("PDF.js load error:", err);
+    });
+  }
+})();
+</script>
+{% endblock %}
