@@ -1,0 +1,9 @@
+[33me1e5eea[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Merge branch 'main' of https://github.com/rafitboo/ai-research-assistant
+[33m4d12573[m[33m ([m[1;31morigin/main[m[33m)[m Initial commit
+[33mcdcef9e[m module 1-feature 4
+[33m16e8c7f[m module-01:_feature:02
+[33mcd35ccf[m Add initial database data snapshot (seed.sql)
+[33m9210743[m module-1 feature-1
+[33m3d87bc9[m first commit
+[33m7950158[m Update requirements for Python 3.13 compatibility and initialize project
+[33mad3e006[m Init: Set up FastAPI backend, Flask frontend, and base SQLAlchemy models
