@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Pending Invitations For You -->
+    <div id="my-invitations-panel" class="hidden bg-indigo-50 border border-indigo-200 rounded-2xl p-5">
+        <h2 class="text-sm font-bold text-indigo-900 mb-3">📬 Project Invitations Waiting For You</h2>
+        <div id="my-invitations-list" class="space-y-2"></div>
+    </div>
     <!-- Header with Create Project Modal Trigger -->
     <div class="flex items-center justify-between">
         <div>
@@ -44,6 +49,11 @@
                         Owner: <strong class="text-slate-700">{{ project.owner_name }}</strong>
                     </span>
                 </div>
+                <div class="pt-3">
+                    <a href="/projects/{{ project.id }}/workspace" class="block text-center text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl py-2 transition">
+                        Open Workspace →
+                    </a>
+                </div>
             </div>
             {% endfor %}
         {% else %}
@@ -82,4 +92,42 @@
         </form>
     </div>
 </div>
+<script>
+(function () {
+  const token = "{{ session.get('token') }}";
+  fetch('http://127.0.0.1:8000/api/collaboration/my-invitations', {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+    .then((res) => (res.ok ? res.json() : []))
+    .then((invites) => {
+      if (!invites || invites.length === 0) return;
+      const panel = document.getElementById('my-invitations-panel');
+      const list = document.getElementById('my-invitations-list');
+      panel.classList.remove('hidden');
+      list.innerHTML = invites
+        .map(
+          (inv) => `
+        <div class="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-indigo-100">
+          <div>
+            <p class="text-sm font-bold text-slate-900">${inv.project_title}</p>
+            <p class="text-xs text-slate-500">Invited as ${inv.role}</p>
+          </div>
+          <button onclick="acceptInvite(${inv.id})" class="text-xs font-bold bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700">Accept</button>
+        </div>`
+        )
+        .join('');
+    })
+    .catch((err) => console.error(err));
+
+  window.acceptInvite = function (id) {
+    fetch(`http://127.0.0.1:8000/api/collaboration/invitations/${id}/accept`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then(() => window.location.reload())
+      .catch((err) => console.error(err));
+  };
+})();
+</script>
 {% endblock %}

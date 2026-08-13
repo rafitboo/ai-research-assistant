@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from sqlalchemy.sql import func
 from app.database import Base
+from sqlalchemy.orm import backref
 
 class User(Base):
     __tablename__ = "users"
@@ -104,3 +105,39 @@ class JournalEntry(Base):
     pinned = Column(Integer, default=0)            # 0/1, avoids Boolean/SQLite quirks
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+
+class ProjectInvitation(Base):
+    __tablename__ = "project_invitations"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
+    email = Column(String, nullable=False)
+    role = Column(String, default="Member")  # Member, Supervisor
+    status = Column(String, default="Pending")  # Pending, Accepted, Expired
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    project = relationship("Project", backref="invitations")
+
+class DiscussionPost(Base):
+    __tablename__ = "discussion_posts"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    parent_id = Column(Integer, ForeignKey("discussion_posts.id", ondelete="CASCADE"), nullable=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    project = relationship("Project", backref="posts")
+    user = relationship("User", backref="posts")
+    replies = relationship("DiscussionPost", backref=backref("parent", remote_side=[id]), cascade="all, delete-orphan")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    message = Column(Text, nullable=False)
+    is_read = Column(Integer, default=0)  # 0 = unread (triggers badge), 1 = read
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User", backref="notifications")

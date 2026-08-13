@@ -251,5 +251,12 @@ def journal_page():
 
 
 
+@app.route("/projects/<int:project_id>/workspace")
+def project_workspace_view(project_id):
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("project_collab.html", project_id=project_id, user=session.get("user"))
+
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
