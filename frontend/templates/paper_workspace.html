@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex flex-col space-y-3" x-data="{ currentTab: 'abstract' }" x-cloak>
+
+    <!-- Header Title -->
+    <div class="flex items-center justify-between px-1">
+        <div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Paper Workspace & AI Chat</h1>
+            <p class="text-slate-600 text-xs">Read the PDF, review simplified abstract, take notes, and chat with Gemini.</p>
+        </div>
+        <a href="/papers" class="text-xs font-bold text-indigo-600 hover:underline bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">← Back to Library</a>
+    </div>
+
+    <!-- Split Screen Main Layout -->
+    <div class="flex-1 flex bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden gap-0">
+
+        <!-- Left Column: PDF Viewer (55%) -->
+        <div class="w-[55%] border-r border-slate-200 flex flex-col bg-slate-50">
+            <div class="px-4 py-2.5 bg-white border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                📄 PDF Viewer
+            </div>
+            <div class="flex-1 p-3 flex items-center justify-center">
+                <iframe src="/papers/{{ paper_id }}/file" class="w-full h-full rounded-xl border border-slate-300 bg-white shadow-inner"></iframe>
+            </div>
+        </div>
+
+        <!-- Right Column: Top Navigation + Dynamic Section (45%) -->
+        <div class="w-[45%] flex flex-col bg-slate-50/50 overflow-hidden">
+
+            <!-- Top Navigation Bar: Abstract | Notes | Chatbot -->
+            <div class="grid grid-cols-3 border-b border-slate-200 bg-white text-center shrink-0">
+                <button type="button" @click="currentTab = 'abstract'"
+                        :class="currentTab === 'abstract' ? 'text-indigo-600 border-b-2 border-indigo-600 font-bold bg-slate-50' : 'text-slate-500 font-medium hover:bg-slate-100'"
+                        class="py-3 text-xs uppercase tracking-wider transition">
+                    Abstract
+                </button>
+                <button type="button" @click="currentTab = 'notes'"
+                        :class="currentTab === 'notes' ? 'text-indigo-600 border-b-2 border-indigo-600 font-bold bg-slate-50' : 'text-slate-500 font-medium hover:bg-slate-100'"
+                        class="py-3 text-xs uppercase tracking-wider transition">
+                    Notes
+                </button>
+                <button type="button" @click="currentTab = 'chat'"
+                        :class="currentTab === 'chat' ? 'text-indigo-600 border-b-2 border-indigo-600 font-bold bg-slate-50' : 'text-slate-500 font-medium hover:bg-slate-100'"
+                        class="py-3 text-xs uppercase tracking-wider transition">
+                    Chatbot
+                </button>
+            </div>
+
+            <!-- Content Area Based on Active Tab -->
+            <div class="flex-1 overflow-y-auto p-4">
+
+                <!-- TAB 1: Abstract (default) -->
+                <div x-show="currentTab === 'abstract'" x-cloak class="space-y-3">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
+                            <span>📑</span> Simplified Paper Abstract
+                        </h3>
+                        <p id="abstract-box" class="text-xs text-slate-700 leading-relaxed whitespace-pre-line italic">
+                            Scanning paper pages for abstract and simplifying...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- TAB 2: Notes -->
+                <div x-show="currentTab === 'notes'" x-cloak class="flex flex-col h-full space-y-3">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1">
+                        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
+                            <span>📝</span> Page-Anchored Notes
+                        </h3>
+
+                        <div class="space-y-2 mb-3">
+                            <div class="flex gap-2">
+                                <input type="number" id="note-page" placeholder="Page" value="1" min="1"
+                                       class="w-24 px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
+                                <input type="text" id="note-content" placeholder="Write note for this page..."
+                                       class="flex-1 px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
+                                       onkeypress="if(event.key === 'Enter') saveNote()">
+                            </div>
+                            <button type="button" onclick="saveNote()" class="w-full bg-slate-800 text-white py-1.5 rounded-xl text-xs font-bold hover:bg-slate-900 transition">Save Note</button>
+                        </div>
+
+                        <div id="notes-container" class="space-y-2 overflow-y-auto pr-1 flex-1">
+                            <p class="text-xs text-slate-400 italic text-center py-2">No notes added yet for this session.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Chatbot -->
+                <div x-show="currentTab === 'chat'" x-cloak class="flex flex-col h-full space-y-3">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-[350px]">
+                        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
+                            <span>🤖</span> Gemini AI Chatbot
+                        </h3>
+
+                        <div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto mb-3 pr-1 max-h-[280px]">
+                            <div class="text-left text-xs text-slate-400 italic">Ask any question about this paper...</div>
+                        </div>
+
+                        <div class="flex gap-2 pt-2 border-t border-slate-100 mt-auto">
+                            <input type="text" id="chat-input" placeholder="Ask about dataset, methodology..."
+                                   class="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                   onkeypress="if(event.key === 'Enter') sendChat()">
+                            <button type="button" onclick="sendChat()" class="bg-[#5B3DF5] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#4A3AFF] transition">Send</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Vanilla JS Logic for API interaction -->
+<script>
+    const paperId = "{{ paper_id }}";
+    const authToken = "{{ session.get('token') }}";
+    const apiBase = "http://127.0.0.1:8000/api";
+
+    document.addEventListener("DOMContentLoaded", () => {
+        fetch(`${apiBase}/papers/${paperId}/overview`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+            const box = document.getElementById('abstract-box');
+            box.innerText = data.abstract || "No abstract found.";
+            box.classList.remove('italic');
+        })
+        .catch(err => {
+            document.getElementById('abstract-box').innerText = "Failed to load simplified abstract.";
+        });
+
+        loadNotes();
+    });
+
+    function loadNotes() {
+        fetch(`${apiBase}/papers/${paperId}/notes`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        })
+        .then(res => res.json())
+        .then(notes => {
+            const container = document.getElementById('notes-container');
+            if (notes.length > 0) {
+                container.innerHTML = notes.map(n => `
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+                        <span class="font-bold text-indigo-600">Page ${n.page_number}:</span>
+                        <span class="text-slate-700 ml-1">${n.note_content}</span>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-2">No notes added yet for this session.</p>`;
+            }
+        })
+        .catch(err => {
+            console.error("Failed to load notes:", err);
+        });
+    }
+
+    function saveNote() {
+        const pageNum = document.getElementById('note-page').value;
+        const content = document.getElementById('note-content').value;
+        if (!content.trim()) return;
+
+        fetch(`${apiBase}/papers/${paperId}/notes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ page_number: parseInt(pageNum) || 1, note_content: content })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('note-content').value = '';
+            loadNotes();
+        })
+        .catch(err => alert("Failed to save note."));
+    }
+
+    function sendChat() {
+        const input = document.getElementById('chat-input');
+        const query = input.value.trim();
+        if (!query) return;
+
+        const chatContainer = document.getElementById('chat-messages');
+
+        chatContainer.innerHTML += `
+            <div class="text-right">
+                <div class="inline-block bg-[#5B3DF5] text-white p-3 rounded-2xl max-w-[90%] text-xs text-left shadow-sm">
+                    <p class="leading-relaxed">${query}</p>
+                </div>
+            </div>
+        `;
+        input.value = '';
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        const loadingId = 'loading-' + Date.now();
+        chatContainer.innerHTML += `
+            <div id="${loadingId}" class="text-left text-xs text-slate-400 italic animate-pulse">Gemini is thinking...</div>
+        `;
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        fetch(`${apiBase}/papers/${paperId}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ question: query })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById(loadingId).remove();
+
+            let sourceHtml = data.source ? `
+                <div class="mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 inline-block">
+                    📌 Source: ${data.source}
+                </div>
+            ` : '';
+
+            chatContainer.innerHTML += `
+                <div class="text-left">
+                    <div class="inline-block bg-slate-100 text-slate-800 p-3 rounded-2xl max-w-[90%] text-xs text-left shadow-sm">
+                        <p class="leading-relaxed">${data.answer}</p>
+                        ${sourceHtml}
+                    </div>
+                </div>
+            `;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        })
+        .catch(err => {
+            document.getElementById(loadingId).remove();
+            chatContainer.innerHTML += `
+                <div class="text-left text-xs text-red-500">Error connecting to AI service.</div>
+            `;
+        });
+    }
+</script>
+{% endblock %}

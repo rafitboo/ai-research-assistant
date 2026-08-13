@@ -232,5 +232,20 @@ def create_project_route():
 
 
 
+
+
+
+@app.route("/papers/<int:paper_id>/workspace")
+def paper_workspace_view(paper_id):
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("paper_workspace.html", paper_id=paper_id, user=session.get("user"))
+
+
+
+
+
+
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

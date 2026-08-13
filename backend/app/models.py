@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from app.database import Base
@@ -23,8 +23,8 @@ class Paper(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
-    author = Column(String, nullable=True)
-    year = Column(Integer, nullable=True)
+    author = Column("authors", String, nullable=True)
+    year = Column("publication_year", Integer, nullable=True)
     topic = Column(String, nullable=True)
     research_area = Column(String, nullable=True)
     tags = Column(String, nullable=True)  # Comma-separated tags
@@ -37,7 +37,7 @@ class Paper(Base):
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column("owner_id", Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="papers")
 
 
@@ -64,3 +64,25 @@ class ProjectMember(Base):
 
     project = relationship("Project", back_populates="members")
     user = relationship("User", back_populates="project_memberships")
+    
+    
+    
+class PaperChunk(Base):
+    __tablename__ = "paper_chunks"
+    id = Column(Integer, primary_key=True, index=True)
+    paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"))
+    page_number = Column(Integer, nullable=False)
+    section_title = Column(String(255), nullable=True)
+    chunk_text = Column(Text, nullable=False)
+    # Note: If pgvector extension is installed in PostgreSQL, 
+    # you can define an embedding column here: embedding = Column(Vector(768))
+
+class PageNote(Base):
+    __tablename__ = "page_notes"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"))
+    page_number = Column(Integer, nullable=False)
+    note_content = Column(Text, nullable=False)
+    
+    paper = relationship("Paper", backref="notes")

@@ -41,9 +41,12 @@
                         {% endif %}
                     </div>
 
-                    <h3 class="font-bold text-slate-900 text-base leading-snug line-clamp-2" title="{{ paper.title }}">
-                        {{ paper.title }}
-                    </h3>
+                    <!-- UPDATED: Clickable Paper Title leading to Workspace Route -->
+                    <a href="/papers/{{ paper.id }}/workspace" class="block group">
+                        <h3 class="font-bold text-slate-900 text-base leading-snug line-clamp-2 group-hover:text-[#5B3DF5] transition" title="{{ paper.title }}">
+                            {{ paper.title }} ↗
+                        </h3>
+                    </a>
 
                     {% if paper.author %}
                     <p class="text-xs text-slate-500 font-medium">👤 {{ paper.author }}</p>
@@ -75,7 +78,7 @@
                         View PDF ↗
                     </a>
                     {% else %}
-                    <span class="text-xs text-slate-400 font-medium">No PDFAttached</span>
+                    <span class="text-xs text-slate-400 font-medium">No PDF Attached</span>
                     {% endif %}
                 </div>
                 <div class="pt-3 space-y-1.5">
