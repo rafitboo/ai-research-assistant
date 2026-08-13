@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import auth, admin, dashboard , papers, projects, paper_workspace
-from app.routers import reading_progress 
+from app.routers import auth, admin, dashboard , papers, projects, paper_workspace, reading_progress, journal
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,6 +22,7 @@ app.include_router(papers.router)
 app.include_router(projects.router)
 app.include_router(reading_progress.router) 
 app.include_router(paper_workspace.router)
+app.include_router(journal.router)
 
 @app.get("/")
 def read_root():

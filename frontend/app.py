@@ -243,7 +243,11 @@ def paper_workspace_view(paper_id):
 
 
 
-
+@app.route('/journal')
+def journal_page():
+    if "token" not in session:
+            return redirect(url_for("login"))
+    return render_template('journal.html')
 
 
 

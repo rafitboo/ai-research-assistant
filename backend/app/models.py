@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+from sqlalchemy.sql import func
 from app.database import Base
 
 class User(Base):
@@ -86,3 +87,20 @@ class PageNote(Base):
     note_content = Column(Text, nullable=False)
     
     paper = relationship("Paper", backref="notes")
+    
+    
+    
+class JournalEntry(Base):
+    __tablename__ = "journal_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    paper_id = Column(Integer, ForeignKey("papers.id"), nullable=True)
+
+    title = Column(String, index=True, nullable=True)
+    content = Column(Text, nullable=False)
+    category = Column(String, default="General")
+    tags = Column(String, nullable=True)          # comma-separated, same pattern as Paper.tags
+    pinned = Column(Integer, default=0)            # 0/1, avoids Boolean/SQLite quirks
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
