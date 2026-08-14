@@ -141,3 +141,28 @@ class Notification(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     user = relationship("User", backref="notifications")
+
+
+class PaperSummary(Base):
+    __tablename__ = "paper_summaries"
+    id = Column(Integer, primary_key=True, index=True)
+    paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"), unique=True)
+    abstract_summary = Column(Text, nullable=False)
+    methodology_summary = Column(Text, nullable=False)
+    findings_summary = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class PaperInsight(Base):
+    __tablename__ = "paper_insights"
+    id = Column(Integer, primary_key=True, index=True)
+    paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"))
+    category = Column(String, nullable=False) # contribution, advantage, limitation, future_work
+    content = Column(Text, nullable=False)
+
+class SavedTitle(Base):
+    __tablename__ = "saved_titles"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
+    title_text = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())    

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="min-h-screen bg-slate-50 p-6 md:p-8 max-w-4xl mx-auto" x-data="titleGenApp('{{ session['token'] }}')" x-cloak>
+    <div class="mb-8">
+        <h1 class="text-2xl font-semibold text-slate-900">AI Thesis & Paper Title Generator</h1>
+        <p class="text-sm text-slate-500">Enter a description or topic to generate candidate titles and save favorites.</p>
+    </div>
+
+    <!-- Generator Box -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+        <label class="block text-sm font-medium text-slate-700 mb-2">Research Topic or Short Project Description</label>
+        <textarea x-model="topicInput" rows="3" placeholder="e.g., Using federated learning to detect pests in agriculture while preserving privacy..." 
+                  class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-4"></textarea>
+        
+        <button @click="generateTitles" :disabled="isGenerating || !topicInput.trim()"
+                class="bg-indigo-600 text-white font-medium rounded-lg px-5 py-2.5 shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-50">
+            <span x-text="isGenerating ? 'Generating Titles...' : 'Generate 5 Candidate Titles'"></span>
+        </button>
+    </div>
+
+    <!-- Candidate Results -->
+    <div x-show="generatedTitles.length > 0" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">Generated Options</h2>
+        <div class="space-y-3">
+            <template x-for="(title, index) in generatedTitles" :key="index">
+                <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                    <span class="text-sm text-slate-800 font-medium" x-text="title"></span>
+                    <button @click="saveTitle(title)" class="text-amber-500 hover:text-amber-600 text-xl px-2 py-1" title="Save Favorite">
+                        ⭐
+                    </button>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Saved Favorites List -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">Saved Favorites (Persistent)</h2>
+        <div class="space-y-3">
+            <template x-for="item in savedTitles" :key="item.id">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+                    <span class="text-sm text-indigo-900 font-medium" x-text="item.title_text"></span>
+                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md font-medium">Saved</span>
+                </div>
+            </template>
+            <p x-show="savedTitles.length === 0" class="text-sm text-slate-400 italic">No saved titles yet.</p>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/ai_titles.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="min-h-screen bg-slate-50 p-6 md:p-8" x-data="summaryApp({{ paper_id }}, '{{ session['token'] }}')" x-cloak>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">AI Summarization & Insights</h1>
+            <a href="/papers" class="text-sm text-indigo-600 hover:underline mt-1 inline-block">&larr; Back to Library</a>
+        </div>
+        <button x-show="status === 'exists'" @click="generateSummary" :disabled="isGenerating"
+                class="inline-flex items-center gap-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg px-4 py-2 shadow-sm hover:bg-slate-50 transition-all disabled:opacity-50">
+            <span x-text="isGenerating ? 'Regenerating...' : 'Regenerate Analysis'"></span>
+        </button>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="status === 'none'" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center max-w-2xl mx-auto mt-10">
+        <h2 class="text-xl font-semibold text-slate-900 mb-2">Generate AI Summary</h2>
+        <p class="text-slate-500 mb-6">Extract the core methodology, findings, and categorized insights using Gemini.</p>
+        <button @click="generateSummary" :disabled="isGenerating" class="bg-indigo-600 text-white font-medium rounded-lg px-6 py-3 shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-50">
+            <span x-text="isGenerating ? 'Analyzing Document...' : 'Start Extraction'"></span>
+        </button>
+    </div>
+
+    <!-- Content State -->
+    <div x-show="status === 'exists'" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-5 space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">Abstract</h3>
+                <p class="text-slate-600 text-sm leading-relaxed" x-text="summary.abstract"></p>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">Methodology</h3>
+                <p class="text-slate-600 text-sm leading-relaxed" x-text="summary.methodology"></p>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-lg font-bold text-slate-900 mb-4 pb-2 border-b border-slate-100">Core Findings</h3>
+                <p class="text-slate-600 text-sm leading-relaxed" x-text="summary.findings"></p>
+            </div>
+        </div>
+
+        <div class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="text-xl font-bold text-slate-900 mb-6">Key Insights Extraction</h2>
+            <div class="space-y-8">
+                <template x-for="section in [
+                    { key: 'contribution', title: 'Contributions', icon: '🚀' },
+                    { key: 'advantage', title: 'Advantages', icon: '✅' },
+                    { key: 'limitation', title: 'Limitations', icon: '⚠️' },
+                    { key: 'future_work', title: 'Future Work', icon: '🔭' }
+                ]">
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <span x-text="section.icon"></span>
+                            <h3 class="font-semibold text-slate-800" x-text="section.title"></h3>
+                        </div>
+                        <ul class="space-y-2">
+                            <template x-for="insight in insights[section.key]" :key="insight.id">
+                                <li class="group flex items-start gap-3 p-3 rounded-xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-colors">
+                                    <div class="flex-1">
+                                        <div x-show="editingId !== insight.id" class="flex justify-between items-start">
+                                            <p class="text-sm text-slate-700 leading-relaxed" x-text="insight.content"></p>
+                                            <button @click="startEdit(insight)" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600 ml-2 shrink-0">✏️</button>
+                                        </div>
+                                        <div x-show="editingId === insight.id" class="space-y-2" x-cloak>
+                                            <textarea x-model="editBuffer" class="w-full border border-slate-300 rounded-md p-2 text-sm text-slate-700" rows="2"></textarea>
+                                            <div class="flex gap-2 justify-end">
+                                                <button @click="editingId = null" class="px-3 py-1 text-xs text-slate-600">Cancel</button>
+                                                <button @click="saveEdit(insight)" class="px-3 py-1 text-xs text-white bg-indigo-600 rounded-md">Save</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/paper_summary.js') }}"></script>
+{% endblock %}

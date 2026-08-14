@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto" x-data="assistantApp('{{ session['token'] }}')" x-cloak>
+
+    <div class="mb-6">
+        <h1 class="text-2xl font-extrabold text-slate-900">AI Research Assistant</h1>
+        <p class="text-sm text-slate-500">Use AI to analyze papers, find gaps, and generate ideas.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Secondary Sidebar: AI Tool List -->
+        <div class="lg:col-span-3 space-y-2">
+            <button type="button" @click="activeTool = 'summarize'"
+                    :class="activeTool === 'summarize' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
+                Summarize Paper
+            </button>
+            <button type="button" @click="activeTool = 'insights'"
+                    :class="activeTool === 'insights' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
+                Extract Insights
+            </button>
+            <button type="button" @click="activeTool = 'chat'"
+                    :class="activeTool === 'chat' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
+                Chat with Paper
+            </button>
+            <button type="button" @click="activeTool = 'gaps'"
+                    :class="activeTool === 'gaps' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
+                Research Gap Finder
+            </button>
+            <button type="button" @click="activeTool = 'questions'"
+                    :class="activeTool === 'questions' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
+                Research Questions
+            </button>
+            <button type="button" @click="activeTool = 'titles'"
+                    :class="activeTool === 'titles' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
+                Title Generator
+            </button>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="lg:col-span-9 space-y-5">
+
+            <!-- SUMMARIZE PAPER -->
+            <template x-if="activeTool === 'summarize'">
+                <div class="space-y-5">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <h2 class="text-lg font-bold text-slate-900 mb-3">Summarize Paper</h2>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+                            <input type="text" x-model="paperQuery" @input="searchPapers"
+                                   placeholder="Search a paper by title..."
+                                   class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <div x-show="paperSuggestions.length > 0" x-cloak
+                                 class="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                                <template x-for="p in paperSuggestions" :key="p.id">
+                                    <button type="button" @click="selectPaper(p)"
+                                            class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                        <span x-text="p.title"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <button type="button" @click="runSummarize" :disabled="!selectedPaper || isSummarizing"
+                                class="mt-4 bg-[#5B3DF5] hover:bg-[#4A3AFF] text-white font-bold rounded-xl px-6 py-2.5 text-sm shadow-sm transition disabled:opacity-50">
+                            <span x-text="isSummarizing ? 'RUNNING...' : 'RUN'"></span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Result</h3>
+                    <div class="flex items-center gap-3">
+                        <button type="button" @click="copyJSON(summaryResult)"
+                                class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                            📋 Copy JSON
+                        </button>
+
+                        <span x-show="copySuccess"
+                        x-text="copySuccess"
+                        class="text-xs font-bold text-emerald-600">
+                        </span>
+                    </div>
+                        </div>
+                        <p x-show="summaryError" class="text-sm text-red-600 font-medium mb-3" x-text="summaryError"></p>
+                        <div x-show="summaryResult" class="space-y-5">
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-sm mb-1">Abstract Summary</h4>
+                                <p class="text-sm text-slate-600 leading-relaxed" x-text="summaryResult && summaryResult.abstract"></p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-sm mb-1">Key Findings</h4>
+                                <p class="text-sm text-slate-600 leading-relaxed" x-text="summaryResult && summaryResult.findings"></p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-sm mb-1">Methodology Summary</h4>
+                                <p class="text-sm text-slate-600 leading-relaxed" x-text="summaryResult && summaryResult.methodology"></p>
+                            </div>
+                        </div>
+                        <p x-show="!summaryResult" class="text-sm text-slate-400 italic">Search a paper and click RUN to generate a summary.</p>
+                    </div>
+                </div>
+            </template>
+
+            <!-- EXTRACT INSIGHTS (placeholder) -->
+            <template x-if="activeTool === 'insights'">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
+                    Extract Insights — coming soon.
+                </div>
+            </template>
+
+            <!-- CHAT WITH PAPER (placeholder) -->
+            <template x-if="activeTool === 'chat'">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
+                    Chat with Paper — coming soon.
+                </div>
+            </template>
+
+            <!-- RESEARCH GAP FINDER (placeholder) -->
+            <template x-if="activeTool === 'gaps'">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
+                    Research Gap Finder — coming soon.
+                </div>
+            </template>
+
+            <!-- RESEARCH QUESTIONS (placeholder) -->
+            <template x-if="activeTool === 'questions'">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
+                    Research Questions — coming soon.
+                </div>
+            </template>
+
+            <!-- TITLE GENERATOR -->
+            <template x-if="activeTool === 'titles'">
+                <div class="space-y-5">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <h2 class="text-lg font-bold text-slate-900 mb-3">Title Generator</h2>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Research Description</label>
+                        <textarea x-model="topicInput" rows="4"
+                                  placeholder="e.g., Using federated learning to detect pests in agriculture while preserving privacy..."
+                                  class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none mb-4"></textarea>
+                        <button type="button" @click="runTitles" :disabled="isGeneratingTitles || !topicInput.trim()"
+                                class="bg-[#5B3DF5] hover:bg-[#4A3AFF] text-white font-bold rounded-xl px-6 py-2.5 text-sm shadow-sm transition disabled:opacity-50">
+                            <span x-text="isGeneratingTitles ? 'RUNNING...' : 'RUN'"></span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide">Result</h3>
+                            <div class="flex items-center gap-3">
+                                <button type="button" @click="copyJSON(generatedTitles)"
+                                        class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                                    📋 Copy JSON
+                                </button>
+
+                                <span x-show="copySuccess"
+                                      x-text="copySuccess"
+                                      class="text-xs font-bold text-emerald-600">
+                                </span>
+                            </div>
+                        </div>
+                        <p x-show="titlesError" class="text-sm text-red-600 font-medium mb-3" x-text="titlesError"></p>
+                        <div x-show="generatedTitles.length > 0" class="space-y-2">
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">Suggested Titles</h4>
+                            <template x-for="(title, index) in generatedTitles" :key="index">
+                                <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                                    <span class="text-sm text-slate-700" x-text="title"></span>
+                                    <button type="button" @click="saveTitle(title)" title="Save Favorite" class="text-amber-500 hover:text-amber-600 text-lg px-2">⭐</button>
+                                </div>
+                            </template>
+                        </div>
+                        <p x-show="generatedTitles.length === 0" class="text-sm text-slate-400 italic">Describe your research and click RUN to generate titles.</p>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6" x-show="savedTitles.length > 0">
+                        <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wide mb-4">Saved Favorites</h3>
+                        <div class="space-y-2">
+                            <template x-for="item in savedTitles" :key="item.id">
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+                                    <span class="text-sm text-indigo-900 font-medium" x-text="item.title_text"></span>
+                                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md font-medium">Saved</span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/assistant.js') }}"></script>
+{% endblock %}

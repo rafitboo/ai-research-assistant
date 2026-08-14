@@ -73,13 +73,19 @@
                         {{ paper.reading_status }}
                     </span>
 
-                    {% if paper.file_path %}
-                    <a href="/papers/{{ paper.id }}/file" target="_blank" class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
-                        View PDF ↗
-                    </a>
-                    {% else %}
-                    <span class="text-xs text-slate-400 font-medium">No PDF Attached</span>
-                    {% endif %}
+                    <div class="flex items-center gap-3">
+                        {% if paper.file_path %}
+                        <a href="/papers/{{ paper.id }}/file" target="_blank" class="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                            View PDF ↗
+                        </a>
+                        {% else %}
+                        <span class="text-xs text-slate-400 font-medium">No PDF Attached</span>
+                        {% endif %}
+                        <a href="/assistant?tool=summarize&paper_id={{ paper.id }}&paper_title={{ paper.title|urlencode }}" class="text-xs font-bold text-[#5B3DF5] hover:underline flex items-center gap-1">
+                            ✨ Summarize
+                        </a>
+                        
+                    </div>
                 </div>
                 <div class="pt-3 space-y-1.5">
                     <div class="w-full bg-slate-100 rounded-full h-1.5">

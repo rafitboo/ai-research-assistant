@@ -258,5 +258,36 @@ def project_workspace_view(project_id):
     return render_template("project_collab.html", project_id=project_id, user=session.get("user"))
 
 
+
+@app.route("/papers/<int:paper_id>/summary")
+def paper_summary_view(paper_id):
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("paper_summary.html", paper_id=paper_id, user=session.get("user"))
+
+@app.route("/assistant")
+def assistant_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("assistant.html", user=session.get("user"))
+
+@app.route("/ai/titles")
+def ai_titles_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    
+    # Fetch projects so users can optionally link saved titles to projects
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    projects = []
+    try:
+        res = httpx.get(f"{API_BASE_URL}/projects/", headers=headers)
+        if res.status_code == 200:
+            projects = res.json()
+    except Exception:
+        pass
+
+    return render_template("ai_titles.html", user=session.get("user"), projects=projects)
+
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
