@@ -288,6 +288,23 @@ def ai_titles_view():
 
     return render_template("ai_titles.html", user=session.get("user"), projects=projects)
 
+@app.route("/literature")
+def literature_review_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "research_gaps.html",
+        user=session.get("user")
+    )
+
+@app.route("/supervision")
+def supervision_portal_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "supervisor_portal.html",
+        user=session.get("user")
+    )
 
 @app.route("/smart-folders")
 def smart_folders_view():
