@@ -297,5 +297,14 @@ def literature_review_view():
         user=session.get("user")
     )
 
+@app.route("/supervision")
+def supervision_portal_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "supervisor_portal.html",
+        user=session.get("user")
+    )
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

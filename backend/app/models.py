@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, Text, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from sqlalchemy.sql import func
@@ -166,3 +166,153 @@ class SavedTitle(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
     title_text = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())    
+
+# ============================================================
+# Module 4 - Feature 3
+# Supervisor Consultation Portal & Review System
+# ============================================================
+
+class ConsultationRequest(Base):
+    __tablename__ = "consultation_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    requester_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    supervisor_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    start_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True
+    )
+
+    end_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True
+    )
+
+    topic = Column(String(255), nullable=False)
+    notes = Column(Text, nullable=True)
+
+    # Pending -> Approved / Declined / Cancelled
+    status = Column(
+        String(30),
+        nullable=False,
+        default="Pending",
+        index=True
+    )
+
+    supervisor_response = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+
+class ResearchMilestone(Base):
+    __tablename__ = "research_milestones"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    created_by = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(Date, nullable=True)
+
+    # Draft -> Pending Review -> Approved / Revision Requested
+    status = Column(
+        String(40),
+        nullable=False,
+        default="Draft",
+        index=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+    reviewed_by = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    latest_review_comment = Column(Text, nullable=True)
+
+
+class MilestoneReview(Base):
+    __tablename__ = "milestone_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    milestone_id = Column(
+        Integer,
+        ForeignKey(
+            "research_milestones.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
+    )
+
+    supervisor_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    # Approved / Revision Requested
+    decision = Column(
+        String(40),
+        nullable=False
+    )
+
+    comments = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
