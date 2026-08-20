@@ -289,5 +289,28 @@ def ai_titles_view():
     return render_template("ai_titles.html", user=session.get("user"), projects=projects)
 
 
+@app.route("/smart-folders")
+def smart_folders_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+        
+    headers = {"Authorization": f"Bearer {session['token']}"}
+    folders = []
+    
+    return render_template("smart_folders.html", user=session.get("user"), folders=folders)
+
+
+@app.route("/analytics")
+def library_analytics_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("analytics.html", user=session.get("user"))
+
+@app.route("/billing")
+def billing_dashboard():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("billing.html", user=session.get("user"))
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from app.database import get_db
-from app.models import Paper, PaperSummary, PaperInsight, SavedTitle, Project
+from app.models import Paper, PaperSummary, PaperInsight, SavedTitle, Project, User
 from app.auth_utils import get_current_user
 
 router = APIRouter(prefix="/api/ai", tags=["AI Features"])
@@ -25,6 +25,19 @@ class SaveTitleRequest(BaseModel):
 
 def get_user_id(user_dict: dict) -> int:
     return int(user_dict.get("user_id") or user_dict.get("sub") or user_dict.get("id"))
+
+
+
+
+def enforce_premium_access(user_dict: dict, db: Session):
+    """Blocks Free users from accessing AI endpoints."""
+    user_id = get_user_id(user_dict)
+    user_record = db.query(User).filter(User.id == user_id).first()
+    if not user_record or user_record.subscription_tier != "Premium":
+        raise HTTPException(
+            status_code=403, 
+            detail="Premium required. Please upgrade your account to unlock AI features."
+        )
 
 # --- Summarization & Insights Endpoints ---
 @router.get("/summary/{paper_id}")
@@ -56,6 +69,7 @@ def get_paper_summary(paper_id: int, db: Session = Depends(get_db), user: dict =
 
 @router.post("/summary/{paper_id}/generate")
 def generate_summary(paper_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    enforce_premium_access(user, db)
     user_id = get_user_id(user)
     paper = db.query(Paper).filter(Paper.id == paper_id, Paper.user_id == user_id).first()
     if not paper or not paper.file_path or not os.path.exists(paper.file_path):
@@ -124,6 +138,7 @@ def update_insight(insight_id: int, payload: InsightUpdate, db: Session = Depend
 # AI Title Generator Endpoints
 @router.post("/titles/generate")
 def generate_titles(payload: TitleGenerateRequest, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    enforce_premium_access(user, db)
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     model = genai.GenerativeModel('gemini-3.6-flash')
     

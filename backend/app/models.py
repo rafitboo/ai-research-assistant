@@ -14,7 +14,10 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, default="Researcher")  # Researcher, Team Member, Admin, Supervisor
     subscription_tier = Column(String, default="Free")  # Free, Premium
+    ai_quota_used = Column(Integer, default=0)
 
+    subscription_expires_at = Column(DateTime(timezone=True), nullable=True)
+    cancel_at_period_end = Column(Integer, default=0)  
     papers = relationship("Paper", back_populates="owner")
     owned_projects = relationship("Project", back_populates="owner")
     project_memberships = relationship("ProjectMember", back_populates="user")
@@ -166,3 +169,42 @@ class SavedTitle(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
     title_text = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())    
+    
+
+
+class SmartFolder(Base):
+    __tablename__ = "smart_folders"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)
+    color = Column(String, default="indigo") # <--- ADD THIS LINE
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    owner = relationship("User", backref="smart_folders")
+    papers = relationship("Paper", secondary="smart_folder_papers", backref="folders")
+
+class SmartFolderPaper(Base):
+    __tablename__ = "smart_folder_papers"
+    folder_id = Column(Integer, ForeignKey("smart_folders.id", ondelete="CASCADE"), primary_key=True)
+    paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"), primary_key=True)
+
+class DismissedRecommendation(Base):
+    __tablename__ = "dismissed_recommendations"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Float, nullable=False)
+    currency = Column(String, default="USD")
+    status = Column(String, default="Pending") # Pending, Completed, Failed
+    transaction_ref = Column(String, unique=True, index=True, nullable=False) # Unique simulated payment ID
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User", backref="transactions")

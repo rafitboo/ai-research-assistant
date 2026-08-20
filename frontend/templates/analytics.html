@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="max-w-7xl mx-auto space-y-8" x-data="libraryAnalytics()" x-init="init()" x-cloak>
+    
+    <!-- Header & Time Range Filter -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-4xl font-extrabold text-slate-900">Library Analytics</h1>
+            <p class="text-slate-700 font-semibold text-sm mt-1">Visualize your reading habits, research focus, and project milestones.</p>
+        </div>
+        
+        <!-- Time Range Selector Sub-feature -->
+        <div class="flex bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm gap-1">
+            <button @click="setTimeRange(7)" :class="selectedDays === 7 ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-100 font-semibold'" class="px-4 py-2 rounded-xl text-xs transition">Last 7 Days</button>
+            <button @click="setTimeRange(30)" :class="selectedDays === 30 ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-100 font-semibold'" class="px-4 py-2 rounded-xl text-xs transition">Last 30 Days</button>
+            <button @click="setTimeRange(null)" :class="selectedDays === null ? 'bg-slate-900 text-white font-bold' : 'text-slate-600 hover:bg-slate-100 font-semibold'" class="px-4 py-2 rounded-xl text-xs transition">All Time</button>
+        </div>
+    </div>
+
+    <template x-if="isLoading">
+        <div class="flex justify-center py-20">
+            <p class="text-indigo-600 font-bold animate-pulse">Aggregating library metrics...</p>
+        </div>
+    </template>
+
+    <template x-if="!isLoading && stats.total === 0">
+        <div class="bg-white p-12 rounded-3xl border border-slate-200 text-center shadow-sm space-y-3">
+            <span class="text-4xl">📊</span>
+            <h3 class="text-lg font-bold text-slate-900">No data found for this time range</h3>
+            <p class="text-slate-500 text-sm font-medium">Try switching to "All Time" or upload papers to populate your analytics dashboard.</p>
+        </div>
+    </template>
+
+    <template x-if="!isLoading && stats.total > 0">
+        <div class="space-y-6">
+            
+            <!-- Top Stat Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Filtered Papers</p>
+                    <p class="text-3xl font-black text-slate-900" x-text="stats.total"></p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Avg. Completion</p>
+                    <div class="flex items-center gap-3">
+                        <p class="text-3xl font-black text-emerald-600" x-text="stats.avg_completion + '%'"></p>
+                    </div>
+                </div>
+                <div class="bg-indigo-600 p-6 rounded-2xl border border-indigo-700 shadow-sm text-white">
+                    <p class="text-indigo-200 text-xs font-bold uppercase tracking-wider mb-1">Current Streak</p>
+                    <p class="text-3xl font-black" x-text="stats.streak + ' Days'"></p>
+                    <p class="text-indigo-200 text-[11px] font-medium mt-1">Consecutive days with a journal entry</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Active Projects</p>
+                    <p class="text-3xl font-black text-slate-900" x-text="stats.project_snapshots.length"></p>
+                </div>
+            </div>
+
+            <!-- Reading Activity Timeline (Line Chart) -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-900 mb-4">Reading Activity Pace</h3>
+                <div class="h-72 w-full">
+                    <canvas id="activityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Charts Row: Status Breakdown & Research Areas -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Doughnut Chart: Reading Status -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 class="text-lg font-bold text-slate-900 mb-4">Reading Status Breakdown</h3>
+                    <div class="h-64 flex justify-center">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Bar Chart: Top Areas -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 class="text-lg font-bold text-slate-900 mb-4">Top Research Areas</h3>
+                    <div class="h-64 flex justify-center">
+                        <canvas id="areasChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Contribution Snapshot Section -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h3 class="text-lg font-bold text-slate-900">Your Projects</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <template x-for="proj in stats.project_snapshots">
+                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-bold text-slate-900 text-sm" x-text="proj.title"></h4>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                      :class="proj.role === 'Owner' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-600'"
+                                      x-text="proj.role"></span>
+                            </div>
+                            <div class="flex justify-between text-xs text-slate-600 font-medium">
+                                <span>Members:</span>
+                                <span class="font-bold text-slate-900" x-text="proj.member_count"></span>
+                            </div>
+                            <div class="flex justify-between text-xs text-slate-600 font-medium">
+                                <span>Created:</span>
+                                <span class="font-bold text-slate-900" x-text="proj.created_at"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+        </div>
+    </template>
+</div>
+
+<script>window.USER_TOKEN = "{{ session.get('token') }}";</script>
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+{% endblock %}

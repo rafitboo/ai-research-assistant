@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-8" x-data="smartFolders()" x-init="init()" x-cloak>
+    <!-- Tailwind Safelist: Forces the CDN to load these dynamic colors -->
+    <div class="hidden 
+        bg-indigo-500 bg-rose-500 bg-emerald-500 bg-amber-500 bg-purple-500 
+        bg-indigo-600 bg-rose-600 bg-emerald-600 bg-amber-600 bg-purple-600 
+        hover:bg-indigo-700 hover:bg-rose-700 hover:bg-emerald-700 hover:bg-amber-700 hover:bg-purple-700 
+        bg-indigo-50 bg-rose-50 bg-emerald-50 bg-amber-50 bg-purple-50 
+        border-indigo-100 border-rose-100 border-emerald-100 border-amber-100 border-purple-100 
+        text-indigo-950 text-rose-950 text-emerald-950 text-amber-950 text-purple-950 
+        text-indigo-600 text-rose-600 text-emerald-600 text-amber-600 text-purple-600">
+    </div>
+    <!-- Header & Actions -->
+    <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+        <div>
+            <h1 class="text-4xl font-extrabold text-slate-900">Smart Folders</h1>
+            <p class="text-slate-700 font-semibold text-sm mt-1">Organize papers, extract insights, and discover recommendations.</p>
+        </div>
+        
+        <!-- Create Folder Form -->
+        <form @submit.prevent="createFolder" class="flex flex-col gap-2 items-end">
+            <div class="flex items-center gap-2">
+                <input type="text" x-model="newFolderName" placeholder="New folder name..." required
+                    class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium w-64">
+                <button type="submit" 
+                    class="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 transition shadow-sm disabled:opacity-50"
+                    :disabled="isCreating">
+                    <span x-show="!isCreating">+ Create</span>
+                    <span x-show="isCreating">Creating...</span>
+                </button>
+            </div>
+            <!-- Color Selector -->
+            <div class="flex gap-2 p-1 bg-white border border-slate-200 rounded-lg shadow-sm">
+                <template x-for="c in ['indigo', 'rose', 'emerald', 'amber', 'purple']">
+                    <button type="button" @click="newFolderColor = c" 
+                        class="w-6 h-6 rounded-md transition border-2"
+                        :class="[
+                            newFolderColor === c ? 'border-slate-800 scale-110' : 'border-transparent hover:scale-110',
+                            'bg-' + c + '-500'
+                        ]"></button>
+                </template>
+            </div>
+        </form>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Column: Folder List -->
+        <div class="lg:col-span-4 space-y-4">
+            <h2 class="text-lg font-bold text-slate-900">Your Folders</h2>
+            
+            <template x-if="folders.length === 0 && !isLoadingFolders">
+                <div class="p-6 bg-white rounded-2xl border border-slate-200 text-center text-slate-500 text-sm font-medium">
+                    No folders created yet.
+                </div>
+            </template>
+
+            <div class="space-y-3">
+                <template x-for="folder in folders" :key="folder.id">
+                    <button @click="selectFolder(folder)" 
+                        class="w-full text-left p-4 rounded-2xl border transition shadow-sm flex items-center gap-4 relative overflow-hidden"
+                        :class="selectedFolder && selectedFolder.id === folder.id ? 'bg-white border-slate-400 ring-2 ring-slate-200' : 'bg-white border-slate-200 hover:border-slate-300'">
+                        
+                        <!-- Dynamic Color Bar -->
+                        <div class="absolute left-0 top-0 bottom-0 w-2" :class="'bg-' + (folder.color || 'indigo') + '-500'"></div>
+                        
+                        <div class="pl-2 flex-1">
+                            <p class="font-bold text-slate-900 text-sm" x-text="folder.name"></p>
+                            <p class="text-xs font-semibold text-slate-500 mt-0.5" x-text="folder.paper_count + ' Papers'"></p>
+                        </div>
+                        <span class="text-xl opacity-50">📁</span>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Right Column: Folder Contents, Insights & Recommendations -->
+        <div class="lg:col-span-8 space-y-6">
+            
+            <template x-if="!selectedFolder">
+                <div class="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+                    <span class="text-4xl mb-3">👈</span>
+                    <p class="font-bold text-sm">Select a folder to view insights and recommendations</p>
+                </div>
+            </template>
+
+            <template x-if="selectedFolder">
+                <div class="space-y-6">
+                    
+                    <!-- Insights Dashboard -->
+                    <template x-if="folderInsights && folderInsights.total_papers > 0">
+                        <div class="bg-slate-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                            <!-- Background glow -->
+                            <div class="absolute -top-10 -right-10 w-40 h-40 blur-3xl opacity-30 rounded-full" :class="'bg-' + (selectedFolder.color || 'indigo') + '-500'"></div>
+                            
+                            <h3 class="text-lg font-black mb-4 flex items-center gap-2">
+                                <span class="text-xl">📊</span> Folder Insights
+                            </h3>
+                            
+                            <div class="grid grid-cols-3 gap-6 relative z-10">
+                                <div>
+                                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Timeline</p>
+                                    <p class="text-xl font-bold" x-text="folderInsights.timeline"></p>
+                                </div>
+                                <div>
+                                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Top Keywords</p>
+                                    <div class="flex flex-wrap gap-1">
+                                        <template x-for="tag in folderInsights.top_tags">
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-semibold" x-text="tag"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Reading Progress</p>
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                            <div class="h-full bg-emerald-400 rounded-full" :style="'width: ' + folderInsights.progress_pct + '%'"></div>
+                                        </div>
+                                        <span class="text-sm font-bold" x-text="folderInsights.progress_pct + '%'"></span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 mt-1" x-text="folderInsights.completed + ' of ' + folderInsights.total_papers + ' completed'"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Current Papers in Folder -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                            <h3 class="text-lg font-bold text-slate-900" x-text="selectedFolder.name + ' - Papers'"></h3>
+                            <div class="flex items-center gap-2">
+                                <!-- NEW: Delete Folder Button -->
+                                <button @click="deleteFolder(selectedFolder.id)" 
+                                    class="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-black hover:bg-red-100 transition shadow-sm border border-red-100">
+                                    🗑️ Delete Folder
+                                </button>
+                                
+                                <button @click="openLibraryModal" 
+                                    class="px-4 py-2 text-white rounded-xl text-xs font-black transition shadow-sm"
+                                    :class="'bg-' + (selectedFolder.color || 'indigo') + '-600 hover:bg-' + (selectedFolder.color || 'indigo') + '-700'">
+                                    + Add Paper
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <template x-if="folderPapers.length === 0">
+                                <p class="text-sm text-slate-500 font-medium p-4 bg-slate-50 rounded-xl">This folder is empty. Add papers to view insights and recommendations.</p>
+                            </template>
+                            <template x-for="paper in folderPapers" :key="paper.id">
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+                                    <div class="flex-1">
+                                        <span class="font-bold text-sm text-slate-900" x-text="paper.title"></span>
+                                        <div class="mt-1">
+                                            <span class="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md" x-text="paper.year || 'N/A'"></span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <button @click="openPaperWorkspace(paper.id)" class="px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 text-xs font-bold hover:bg-teal-100 transition border border-teal-100">Open</button>
+                                        <button @click="removePaperFromFolder(paper.id)" class="px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition border border-red-100">Remove</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- AI Recommendations Feed -->
+                    <div class="p-6 rounded-2xl shadow-sm border" :class="'bg-' + (selectedFolder.color || 'indigo') + '-50 border-' + (selectedFolder.color || 'indigo') + '-100'">
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-xl">✨</span>
+                            <h3 class="text-lg font-bold" :class="'text-' + (selectedFolder.color || 'indigo') + '-950'">More Like This</h3>
+                        </div>
+                        
+                        <template x-if="isLoadingRecs">
+                            <p class="text-sm font-bold animate-pulse" :class="'text-' + (selectedFolder.color || 'indigo') + '-600'">Generating AI recommendations...</p>
+                        </template>
+                        
+                        <template x-if="!isLoadingRecs && recommendations.length === 0">
+                            <p class="text-sm text-slate-500 font-medium bg-white p-4 rounded-xl shadow-sm">No new recommendations found.</p>
+                        </template>
+
+                        <div class="space-y-3">
+                            <template x-for="rec in recommendations" :key="rec.id">
+                                <div class="p-4 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-slate-900 leading-tight" x-text="rec.title"></p>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <button @click="addPaperToFolder(rec.id)" title="Add to Folder" class="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition border border-emerald-100">📥</button>
+                                        <button @click="dismissRecommendation(rec.id)" title="Dismiss" class="p-2 rounded-lg bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 transition border border-transparent hover:border-red-100">❌</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Add Paper Modal -->
+    <div x-show="showModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" x-cloak>
+        <div class="bg-white rounded-3xl p-6 w-full max-w-xl shadow-2xl border border-slate-100" @click.away="showModal = false">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-xl font-black text-slate-900">Add from Library</h3>
+                <button @click="showModal = false" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+            </div>
+            
+            <div class="max-h-80 overflow-y-auto space-y-2 pr-2">
+                <template x-if="isLoadingLibrary">
+                    <p class="text-sm text-indigo-600 font-bold animate-pulse text-center py-4">Loading your papers...</p>
+                </template>
+                <template x-if="!isLoadingLibrary && availableLibraryPapers.length === 0">
+                    <p class="text-sm text-slate-500 font-medium text-center py-4 bg-slate-50 rounded-xl border border-slate-100">No available papers to add.</p>
+                </template>
+                <template x-for="paper in availableLibraryPapers" :key="paper.id">
+                    <button @click="addPaperFromModal(paper.id)" class="w-full text-left p-4 hover:bg-[#EFFBFE] hover:border-teal-200 rounded-xl border border-slate-100 flex justify-between items-center transition group">
+                        <span x-text="paper.title" class="text-sm font-bold text-slate-700 group-hover:text-teal-900 line-clamp-1 pr-4"></span>
+                        <span class="text-lg opacity-0 group-hover:opacity-100 transition">📥</span>
+                    </button>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>window.USER_TOKEN = "{{ session.get('token') }}";</script>
+<script src="{{ url_for('static', filename='js/smart_folders.js') }}"></script>
+{% endblock %}

@@ -13,6 +13,18 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
+
+def enforce_premium_access(user_dict: dict, db: Session):
+    """Blocks Free users from accessing AI endpoints."""
+    user_id = int(user_dict.get("user_id") or user_dict.get("sub") or user_dict.get("id"))
+    user_record = db.query(User).filter(User.id == user_id).first()
+    if not user_record or user_record.subscription_tier != "Premium":
+        raise HTTPException(
+            status_code=403, 
+            detail="Premium required. Please upgrade your account to unlock AI features."
+        )
+
+
 def extract_pdf_text(file_path: str, max_pages: int = 15) -> str:
     """Extract text from the PDF, scanning up to 15 pages to ensure the abstract is caught."""
     if not file_path or not os.path.exists(file_path):
@@ -92,6 +104,7 @@ def create_page_note(paper_id: int, data: NoteCreateSchema, db: Session = Depend
 
 @router.post("/{paper_id}/chat")
 def chat_with_paper(paper_id: int, data: ChatQuerySchema, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    enforce_premium_access(current_user, db)
     paper = db.query(Paper).filter(Paper.id == paper_id).first()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")

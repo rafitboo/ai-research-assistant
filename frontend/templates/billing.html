@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8" x-data="billingDashboard()" x-init="init()" x-cloak>
+    
+    <!-- Header -->
+    <div>
+        <h1 class="text-4xl font-extrabold text-slate-900">Billing & Subscription</h1>
+        <p class="text-slate-700 font-semibold text-sm mt-1">Manage your plan and view transaction history.</p>
+    </div>
+
+    <!-- Payment Status Alert -->
+    <template x-if="urlStatus === 'success'">
+        <div class="p-4 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl font-bold text-sm">
+            ✅ Payment successful! Your account has been upgraded to Premium.
+        </div>
+    </template>
+    <template x-if="urlStatus === 'fail'">
+        <div class="p-4 bg-rose-50 text-rose-800 border border-rose-200 rounded-xl font-bold text-sm">
+            ❌ Payment failed. Please try again.
+        </div>
+    </template>
+
+    <template x-if="isLoading">
+        <div class="flex justify-center py-20">
+            <p class="text-indigo-600 font-bold animate-pulse">Loading billing details...</p>
+        </div>
+    </template>
+
+    <template x-if="!isLoading">
+        <div class="space-y-8">
+            
+            <!-- Top Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Plan Card -->
+                <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-bl-full -z-10"></div>
+                    
+                    <div>
+                        <p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2">Current Plan</p>
+                        <div class="flex items-end gap-3">
+                            <h2 class="text-4xl font-black text-slate-900" x-text="statusData.tier"></h2>
+                            <span x-show="statusData.tier === 'Premium'" class="mb-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-lg">Active</span>
+                        </div>
+                        
+                        <!-- Dynamic Status Messages -->
+                        <p class="text-sm text-slate-600 font-medium mt-3" x-show="statusData.tier === 'Free'">
+                            Upgrade to Premium to unlock unlimited AI features and advanced synthesis tools.
+                        </p>
+                        <p class="text-sm text-slate-600 font-medium mt-3" x-show="statusData.tier === 'Premium' && !statusData.cancel_at_period_end">
+                            You have unlimited access to all AI assistant features. Renews automatically on <span class="font-bold text-slate-900" x-text="statusData.expires_at"></span>.
+                        </p>
+                        <div class="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200" x-show="statusData.tier === 'Premium' && statusData.cancel_at_period_end" x-cloak>
+                            <p class="text-sm text-amber-800 font-bold">⚠️ Subscription Canceled</p>
+                            <p class="text-xs text-amber-700 font-medium mt-1">Premium feature access will go away on <span class="font-bold" x-text="statusData.expires_at"></span>.</p>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mt-8 space-y-2">
+                        <!-- Upgrade Button (Shows for Free users OR users whose sub is canceled and about to expire) -->
+                        <button x-show="statusData.tier === 'Free' || (statusData.tier === 'Premium' && statusData.cancel_at_period_end)" 
+                            @click="initiatePayment()" :disabled="isCheckingOut" 
+                            class="w-full py-3.5 bg-[#5B3DF5] text-white font-black rounded-xl hover:bg-indigo-700 transition shadow-md disabled:opacity-50 flex justify-center items-center gap-2">
+                            
+                            <!-- STRICTLY mutually exclusive text spans -->
+                            <span x-show="!isCheckingOut && statusData.tier === 'Free'">✨ Upgrade to Premium (BDT1500/mo)</span>
+                            <span x-show="!isCheckingOut && statusData.tier === 'Premium' && statusData.cancel_at_period_end">✨ Reactivate Premium (BDT1500/mo)</span>
+                            <span x-show="isCheckingOut">Redirecting to SSLCommerz...</span>
+                        </button>
+
+                        <!-- Cancel Button (Only shows for Active Premium users) -->
+                        <button x-show="statusData.tier === 'Premium' && !statusData.cancel_at_period_end" 
+                            @click="cancelSubscription()" :disabled="isCanceling"
+                            class="w-full py-3 bg-white border-2 border-rose-100 text-rose-600 text-sm font-bold rounded-xl hover:bg-rose-50 hover:border-rose-200 transition shadow-sm disabled:opacity-50">
+                            <span x-show="!isCanceling">Cancel Subscription</span>
+                            <span x-show="isCanceling">Canceling...</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Premium Perks Card -->
+                <div class="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-lg text-white flex flex-col justify-center">
+                    <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-6">Premium Includes</p>
+                    <ul class="space-y-4">
+                        <li class="flex items-center gap-3">
+                            <span class="text-emerald-400">✓</span>
+                            <span class="text-sm font-bold">Unlimited Gemini AI Paper Chat</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-emerald-400">✓</span>
+                            <span class="text-sm font-bold">Cross-Paper Gap Synthesis</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-emerald-400">✓</span>
+                            <span class="text-sm font-bold">Advanced Insight Extraction</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-emerald-400">✓</span>
+                            <span class="text-sm font-bold">Automated Title Generator</span>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <!-- Transaction History -->
+            <div class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-900 mb-6">Transaction History</h3>
+                
+                <template x-if="statusData.history.length === 0">
+                    <div class="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100">
+                        <p class="text-slate-500 text-sm font-medium">No previous transactions found.</p>
+                    </div>
+                </template>
+
+                <template x-if="statusData.history.length > 0">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200 text-slate-500">
+                                    <th class="pb-3 font-bold uppercase text-[10px] tracking-wider">Date</th>
+                                    <th class="pb-3 font-bold uppercase text-[10px] tracking-wider">Reference ID</th>
+                                    <th class="pb-3 font-bold uppercase text-[10px] tracking-wider">Amount</th>
+                                    <th class="pb-3 font-bold uppercase text-[10px] tracking-wider">Status</th>
+                                    <th class="pb-3 font-bold uppercase text-[10px] tracking-wider text-right">Invoice</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <template x-for="txn in statusData.history" :key="txn.id">
+                                    <tr class="hover:bg-slate-50 transition">
+                                        <td class="py-4 font-medium text-slate-700" x-text="txn.date"></td>
+                                        <td class="py-4 font-mono text-xs font-bold text-slate-500" x-text="txn.ref"></td>
+                                        <td class="py-4 font-black text-slate-900" x-text="txn.amount.toFixed(2) + ' ' + txn.currency"></td>
+                                        <td class="py-4">
+                                            <span class="px-2 py-1 text-[10px] font-black uppercase tracking-wider rounded-md" 
+                                                  :class="{
+                                                      'bg-emerald-50 text-emerald-700': txn.status === 'Completed',
+                                                      'bg-amber-50 text-amber-700': txn.status === 'Pending',
+                                                      'bg-rose-50 text-rose-700': txn.status === 'Failed' || txn.status === 'Cancelled'
+                                                  }" x-text="txn.status"></span>
+                                        </td>
+                                        <td class="py-4 text-right">
+                                            <button @click="downloadInvoice(txn)" 
+                                                    class="text-indigo-600 hover:text-indigo-800 font-bold text-xs bg-indigo-50 px-3 py-1.5 rounded-lg transition" 
+                                                    :disabled="txn.status !== 'Completed'">
+                                                Download
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+            </div>
+
+        </div>
+    </template>
+</div>
+
+<script>window.USER_TOKEN = "{{ session.get('token') }}";</script>
+<script src="{{ url_for('static', filename='js/billing.js') }}"></script>
+{% endblock %}

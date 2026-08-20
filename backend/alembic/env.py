@@ -28,6 +28,20 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
+
+# Prevent Alembic autogenerate from emitting DROP TABLE for tables
+# that exist in the database but are not present in the SQLAlchemy
+# metadata. This avoids accidental destructive migrations when
+# models are intentionally omitted from the codebase.
+def include_object(object, name, type_, reflected, compare_to):
+    # object: Table/Column/Index
+    # type_ is a string like 'table', 'column', 'index'
+    # compare_to is the corresponding object in the metadata (or None)
+    if type_ == 'table' and compare_to is None:
+        # A table exists in the DB but not in metadata: don't autogenerate DROP
+        return False
+    return True
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -50,6 +64,8 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        include_object=include_object,
+        compare_type=True,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -73,7 +89,10 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
+            compare_type=True,
         )
 
         with context.begin_transaction():
