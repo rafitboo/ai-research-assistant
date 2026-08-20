@@ -1,8 +1,34 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List, Optional
+"""
+NEW FILE — place at: app/routers/collaboration.py
+
+Covers Module 2, Member 3's combined feature:
+  "Discussion Board + Project Membership & Invitations"
+
+  - Invite by email, assign role (Collaborator / Supervisor)
+  - Pending invitations auto-expire after 7 days, one-click resend
+  - Once a member joins, they get access to a per-project discussion
+    board with threaded, timestamped, attributed posts
+  - @mentions trigger a notification for the mentioned user
+
+Fixes applied vs. the original draft:
+  - Ownership/membership checks added on resend, posts, and members
+    endpoints (previously anyone authenticated could hit any project_id)
+  - Added GET /projects/{id}/members — the actual "project detail page
+    shows all current members and their roles" requirement, which the
+    original draft never implemented (it only showed invitations)
+  - Added GET /my-invitations — lets an invited user see invites sent
+    to their email so they can actually accept them (the original draft
+    defined the accept endpoint but nothing ever called it)
+  - Duplicate-pending-invite prevention
+  - Role values aligned with the spec wording: "Collaborator" / "Supervisor"
+"""
+
 from datetime import datetime, timezone, timedelta
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Project, ProjectMember, ProjectInvitation, DiscussionPost, Notification, User
@@ -10,96 +36,243 @@ from app.auth_utils import get_current_user
 
 router = APIRouter(prefix="/api/collaboration", tags=["Collaboration"])
 
+VALID_ROLES = {"Collaborator", "Supervisor"}
+INVITE_EXPIRY_DAYS = 7
+
+
 class InviteRequest(BaseModel):
     email: str
-    role: str = "Member"
+    role: str = "Collaborator"
+
 
 class PostRequest(BaseModel):
     content: str
     parent_id: Optional[int] = None
 
+
 def get_user_id(user_dict: dict) -> int:
-    return int(user_dict.get("user_id") or user_dict.get("sub") or user_dict.get("id"))
+    """Same pattern as journal.py's get_user_id_from_token, for consistency."""
+    user_id = user_dict.get("user_id") or user_dict.get("sub") or user_dict.get("id")
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User ID not found in token payload")
+    return int(user_id)
+
+
+def _require_project_access(project_id: int, user_id: int, db: Session) -> Project:
+    """Owner OR existing member only — blocks guessing project_ids."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    is_owner = project.owner_id == user_id
+    is_member = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id)
+        .first()
+        is not None
+    )
+    if not (is_owner or is_member):
+        raise HTTPException(status_code=403, detail="You don't have access to this project")
+    return project
+
+
+def _expire_stale_invitations(invitations: list[ProjectInvitation], db: Session) -> None:
+    now = datetime.now(timezone.utc)
+    changed = False
+    for inv in invitations:
+        if inv.status == "Pending" and inv.created_at:
+            created_at = inv.created_at
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            if (now - created_at) > timedelta(days=INVITE_EXPIRY_DAYS):
+                inv.status = "Expired"
+                changed = True
+    if changed:
+        db.commit()
+
 
 # --- Invitations & Membership ---
+
 @router.post("/projects/{project_id}/invite")
-def invite_member(project_id: int, payload: InviteRequest, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def invite_member(
+    project_id: int,
+    payload: InviteRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
     user_id = get_user_id(user)
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user_id).first()
     if not project:
         raise HTTPException(status_code=403, detail="Only project owners can send invitations.")
 
-    invitation = ProjectInvitation(
-        project_id=project_id,
-        email=payload.email,
-        role=payload.role,
-        status="Pending"
+    role = payload.role if payload.role in VALID_ROLES else "Collaborator"
+
+    existing = (
+        db.query(ProjectInvitation)
+        .filter(
+            ProjectInvitation.project_id == project_id,
+            ProjectInvitation.email == payload.email,
+            ProjectInvitation.status == "Pending",
+        )
+        .first()
     )
+    if existing:
+        raise HTTPException(status_code=400, detail="An invitation is already pending for this email.")
+
+    invitation = ProjectInvitation(project_id=project_id, email=payload.email, role=role, status="Pending")
     db.add(invitation)
     db.commit()
     return {"message": "Invitation sent successfully"}
 
-@router.get("/projects/{project_id}/invitations")
-def get_invitations(project_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    invitations = db.query(ProjectInvitation).filter(ProjectInvitation.project_id == project_id).all()
-    
-    now = datetime.now(timezone.utc)
-    for inv in invitations:
-        if inv.status == "Pending":
-            # Check if older than 7 days
-            created_at_utc = inv.created_at
-            if created_at_utc and (now - created_at_utc) > timedelta(days=7):
-                inv.status = "Expired"
-    db.commit()
 
-    return [{
-        "id": i.id,
-        "email": i.email,
-        "role": i.role,
-        "status": i.status,
-        "created_at": i.created_at
-    } for i in invitations]
+@router.get("/projects/{project_id}/invitations")
+def get_invitations(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    _require_project_access(project_id, user_id, db)
+
+    invitations = db.query(ProjectInvitation).filter(ProjectInvitation.project_id == project_id).all()
+    _expire_stale_invitations(invitations, db)
+
+    return [
+        {"id": i.id, "email": i.email, "role": i.role, "status": i.status, "created_at": i.created_at}
+        for i in invitations
+    ]
+
 
 @router.post("/invitations/{invitation_id}/resend")
-def resend_invitation(invitation_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def resend_invitation(
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = get_user_id(user)
     inv = db.query(ProjectInvitation).filter(ProjectInvitation.id == invitation_id).first()
     if not inv:
         raise HTTPException(status_code=404, detail="Invitation not found")
-    
+
+    project = db.query(Project).filter(Project.id == inv.project_id).first()
+    if not project or project.owner_id != user_id:
+        raise HTTPException(status_code=403, detail="Only the project owner can resend invitations.")
+
     inv.status = "Pending"
     inv.created_at = datetime.now(timezone.utc)
     db.commit()
     return {"message": "Invitation re-sent successfully"}
 
+
+@router.get("/my-invitations")
+def get_my_invitations(
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Invitations addressed to the logged-in user's email, still pending."""
+    user_id = get_user_id(user)
+    current = db.query(User).filter(User.id == user_id).first()
+    if not current:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    invites = (
+        db.query(ProjectInvitation)
+        .filter(ProjectInvitation.email == current.email, ProjectInvitation.status == "Pending")
+        .all()
+    )
+    _expire_stale_invitations(invites, db)
+
+    result = []
+    for inv in invites:
+        if inv.status != "Pending":
+            continue
+        result.append(
+            {
+                "id": inv.id,
+                "project_id": inv.project_id,
+                "project_title": inv.project.title if inv.project else "Unknown Project",
+                "role": inv.role,
+                "created_at": inv.created_at,
+            }
+        )
+    return result
+
+
 @router.post("/invitations/{invitation_id}/accept")
-def accept_invitation(invitation_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def accept_invitation(
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
     user_id = get_user_id(user)
     current_user_obj = db.query(User).filter(User.id == user_id).first()
-    
+
     inv = db.query(ProjectInvitation).filter(ProjectInvitation.id == invitation_id).first()
     if not inv or inv.status != "Pending":
         raise HTTPException(status_code=400, detail="Invalid or expired invitation")
-    
+
     if current_user_obj.email != inv.email:
         raise HTTPException(status_code=403, detail="This invitation was sent to a different email address.")
 
     inv.status = "Accepted"
-    
-    # Add to project members if not already added
-    existing_member = db.query(ProjectMember).filter(ProjectMember.project_id == inv.project_id, ProjectMember.user_id == user_id).first()
+
+    existing_member = (
+        db.query(ProjectMember)
+        .filter(ProjectMember.project_id == inv.project_id, ProjectMember.user_id == user_id)
+        .first()
+    )
     if not existing_member:
         new_member = ProjectMember(project_id=inv.project_id, user_id=user_id, role=inv.role)
         db.add(new_member)
-        
+
     db.commit()
-    return {"message": "Successfully joined the project"}
+    return {"message": "Successfully joined the project", "project_id": inv.project_id}
+
+
+@router.get("/projects/{project_id}/members")
+def get_project_members(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """The actual 'project detail page shows all current members and
+    their roles' requirement from the spec."""
+    user_id = get_user_id(user)
+    project = _require_project_access(project_id, user_id, db)
+
+    members = db.query(ProjectMember).filter(ProjectMember.project_id == project_id).all()
+
+    result = []
+    if project.owner:
+        result.append(
+            {"user_id": project.owner.id, "name": project.owner.name, "email": project.owner.email, "role": "Owner"}
+        )
+    for m in members:
+        if m.user:
+            result.append({"user_id": m.user.id, "name": m.user.name, "email": m.user.email, "role": m.role})
+
+    return result
+
 
 # --- Discussion Board & @Mentions ---
+
 @router.get("/projects/{project_id}/posts")
-def get_project_posts(project_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    posts = db.query(DiscussionPost).filter(DiscussionPost.project_id == project_id, DiscussionPost.parent_id == None).order_by(DiscussionPost.created_at.desc()).all()
-    
-    def serialize_post(p):
+def get_project_posts(
+    project_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    _require_project_access(project_id, user_id, db)
+
+    posts = (
+        db.query(DiscussionPost)
+        .filter(DiscussionPost.project_id == project_id, DiscussionPost.parent_id.is_(None))
+        .order_by(DiscussionPost.created_at.desc())
+        .all()
+    )
+
+    def serialize_post(p: DiscussionPost) -> dict:
         return {
             "id": p.id,
             "content": p.content,
@@ -110,51 +283,83 @@ def get_project_posts(project_id: int, db: Session = Depends(get_db), user: dict
                     "id": r.id,
                     "content": r.content,
                     "author": r.user.name if r.user else "Unknown",
-                    "created_at": r.created_at
-                } for r in p.replies
-            ]
+                    "created_at": r.created_at,
+                }
+                for r in p.replies
+            ],
         }
+
     return [serialize_post(p) for p in posts]
 
+
 @router.post("/projects/{project_id}/posts")
-def create_project_post(project_id: int, payload: PostRequest, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def create_project_post(
+    project_id: int,
+    payload: PostRequest,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
     user_id = get_user_id(user)
-    
+    _require_project_access(project_id, user_id, db)
+
     post = DiscussionPost(
         project_id=project_id,
         user_id=user_id,
         parent_id=payload.parent_id,
-        content=payload.content
+        content=payload.content,
     )
     db.add(post)
     db.commit()
 
     # Parse @mentions (e.g., @RafiulIslam or @Name)
-    words = payload.content.split()
-    for word in words:
-        if word.startswith("@"):
+    for word in payload.content.split():
+        if word.startswith("@") and len(word) > 1:
             mentioned_name = word[1:].replace("_", " ")
-            mentioned_user = db.query(User).filter(User.name.ilike(f"%{mentioned_name}%")).first()
+            mentioned_user = (
+                db.query(User)
+                .filter(User.name.ilike(f"%{mentioned_name}%"))
+                .first()
+            )
             if mentioned_user and mentioned_user.id != user_id:
                 notif = Notification(
                     user_id=mentioned_user.id,
-                    message=f"You were mentioned in a project discussion."
+                    message=f"You were mentioned in a project discussion.",
                 )
                 db.add(notif)
                 db.commit()
 
     return {"message": "Post created successfully"}
 
+
 # --- Notifications / Dashboard Badge ---
+
 @router.get("/notifications")
-def get_notifications(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def get_notifications(
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
     user_id = get_user_id(user)
-    notifs = db.query(Notification).filter(Notification.user_id == user_id).order_by(Notification.created_at.desc()).all()
+    notifs = (
+        db.query(Notification)
+        .filter(Notification.user_id == user_id)
+        .order_by(Notification.created_at.desc())
+        .all()
+    )
     return [{"id": n.id, "message": n.message, "is_read": n.is_read, "created_at": n.created_at} for n in notifs]
 
+
 @router.post("/notifications/{notification_id}/read")
-def mark_notification_read(notification_id: int, db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    notif = db.query(Notification).filter(Notification.id == notification_id).first()
+def mark_notification_read(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    notif = (
+        db.query(Notification)
+        .filter(Notification.id == notification_id, Notification.user_id == user_id)
+        .first()
+    )
     if notif:
         notif.is_read = 1
         db.commit()

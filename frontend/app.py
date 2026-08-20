@@ -288,6 +288,14 @@ def ai_titles_view():
 
     return render_template("ai_titles.html", user=session.get("user"), projects=projects)
 
+@app.route("/literature")
+def literature_review_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template(
+        "research_gaps.html",
+        user=session.get("user")
+    )
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
