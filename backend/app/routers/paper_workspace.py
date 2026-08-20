@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.database import get_db
-from app.models import Paper, PageNote
+from app.models import Paper, PageNote, User
 from app.auth_utils import get_current_user
 import google.generativeai as genai
 
