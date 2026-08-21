@@ -49,9 +49,12 @@
                         Owner: <strong class="text-slate-700">{{ project.owner_name }}</strong>
                     </span>
                 </div>
-                <div class="pt-3">
-                    <a href="/projects/{{ project.id }}/workspace" class="block text-center text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl py-2 transition">
+                <div class="pt-3 flex gap-2">
+                    <a href="/projects/{{ project.id }}/workspace" class="flex-1 block text-center text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl py-2 transition">
                         Open Workspace →
+                    </a>
+                    <a href="/projects/{{ project.id }}/tasks" class="flex-1 block text-center text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl py-2 transition">
+                        Task Board →
                     </a>
                 </div>
             </div>

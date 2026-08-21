@@ -347,6 +347,38 @@ class ResearchMilestone(Base):
 
     latest_review_comment = Column(Text, nullable=True)
 
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Optional link so a task can automatically populate the milestone timeline.
+    milestone_id = Column(Integer, ForeignKey("research_milestones.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # A task can depend on another task in the same project (nullable = no dependency).
+    depends_on_id = Column(Integer, ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(Date, nullable=True)
+
+    assignee_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # Kanban column: Todo -> In Progress -> Done
+    status = Column(String(30), nullable=False, default="Todo", index=True)
+
+    # Server-computed/refreshed flag: true once due_date has passed and status != Done
+    is_overdue = Column(Integer, default=0)  # 0/1, same pattern used elsewhere in this codebase
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    project = relationship("Project", backref="tasks")
+    milestone = relationship("ResearchMilestone", backref="tasks")
+    depends_on = relationship("Task", remote_side=[id], backref="blocking_tasks")
 
 class MilestoneReview(Base):
     __tablename__ = "milestone_reviews"

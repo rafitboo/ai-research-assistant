@@ -257,7 +257,11 @@ def project_workspace_view(project_id):
         return redirect(url_for("login"))
     return render_template("project_collab.html", project_id=project_id, user=session.get("user"))
 
-
+@app.route("/projects/<int:project_id>/tasks")
+def task_board_view(project_id):
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("task_board.html", project_id=project_id, user=session.get("user"))
 
 @app.route("/papers/<int:paper_id>/summary")
 def paper_summary_view(paper_id):
