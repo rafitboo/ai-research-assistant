@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 
-from app.routers import auth, admin, dashboard , papers, projects, paper_workspace, reading_progress, journal, collaboration, ai_features, research_gaps, supervisor_portal, smart_folders, analytics, billing, audit_log, task_board
+from app.routers import auth, admin, dashboard , papers, projects, paper_workspace, reading_progress, journal, collaboration, ai_features, research_gaps, supervisor_portal, smart_folders, analytics, billing, audit_log, task_board, literature_matrix
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,7 +34,7 @@ app.include_router(research_gaps.router)
 app.include_router(supervisor_portal.router)
 app.include_router(audit_log.router)
 app.include_router(task_board.router)
-
+app.include_router(literature_matrix.router)
 @app.get("/")
 def read_root():
     return {"status": "FastAPI Backend is running"}

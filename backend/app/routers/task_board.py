@@ -22,9 +22,9 @@ class TaskCreatePayload(BaseModel):
     description: Optional[str] = None
     due_date: Optional[date] = None
     milestone_id: Optional[int] = None
+    milestone_title: Optional[str] = None
     depends_on_id: Optional[int] = None
     assignee_id: Optional[int] = None
-
 
 class TaskUpdatePayload(BaseModel):
     title: Optional[str] = None
@@ -128,10 +128,38 @@ def create_task(payload: TaskCreatePayload, db: Session = Depends(get_db), user:
     if not payload.title.strip():
         raise HTTPException(status_code=400, detail="Task title is required")
 
-    if payload.milestone_id is not None:
+    target_milestone_id = payload.milestone_id
+
+    # Handle custom milestone input or fetch existing
+    if payload.milestone_title and payload.milestone_title.strip():
+        clean_title = payload.milestone_title.strip()
+        existing_milestone = (
+            db.query(ResearchMilestone)
+            .filter(
+                ResearchMilestone.project_id == payload.project_id,
+                ResearchMilestone.title.ilike(clean_title)
+            )
+            .first()
+        )
+        if existing_milestone:
+            target_milestone_id = existing_milestone.id
+        else:
+            # Create a dedicated milestone with created_by set
+            new_milestone = ResearchMilestone(
+                project_id=payload.project_id,
+                created_by=user_id,  # Added to satisfy NOT NULL constraint
+                title=clean_title,
+                due_date=payload.due_date,
+                status="Pending"
+            )
+            db.add(new_milestone)
+            db.flush()  # Populates new_milestone.id before task insertion
+            target_milestone_id = new_milestone.id
+
+    elif target_milestone_id is not None:
         milestone = (
             db.query(ResearchMilestone)
-            .filter(ResearchMilestone.id == payload.milestone_id, ResearchMilestone.project_id == payload.project_id)
+            .filter(ResearchMilestone.id == target_milestone_id, ResearchMilestone.project_id == payload.project_id)
             .first()
         )
         if not milestone:
@@ -148,7 +176,7 @@ def create_task(payload: TaskCreatePayload, db: Session = Depends(get_db), user:
 
     task = Task(
         project_id=payload.project_id,
-        milestone_id=payload.milestone_id,
+        milestone_id=target_milestone_id,
         depends_on_id=payload.depends_on_id,
         title=payload.title.strip(),
         description=payload.description.strip() if payload.description else None,

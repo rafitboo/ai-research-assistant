@@ -413,3 +413,174 @@ class MilestoneReview(Base):
         DateTime(timezone=True),
         server_default=func.now()
     )
+
+class LiteratureMatrix(Base):
+    __tablename__ = "literature_matrices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=True
+    )
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    user = relationship("User", backref="literature_matrices")
+    project = relationship("Project", backref="literature_matrices")
+
+    papers = relationship(
+        "LiteratureMatrixPaper",
+        back_populates="matrix",
+        cascade="all, delete-orphan"
+    )
+
+    columns = relationship(
+        "LiteratureMatrixColumn",
+        back_populates="matrix",
+        cascade="all, delete-orphan",
+        order_by="LiteratureMatrixColumn.position"
+    )
+
+
+class LiteratureMatrixPaper(Base):
+    __tablename__ = "literature_matrix_papers"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    matrix_id = Column(
+        Integer,
+        ForeignKey("literature_matrices.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    paper_id = Column(
+        Integer,
+        ForeignKey("papers.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    position = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    matrix = relationship(
+        "LiteratureMatrix",
+        back_populates="papers"
+    )
+
+    paper = relationship("Paper")
+
+
+class LiteratureMatrixColumn(Base):
+    __tablename__ = "literature_matrix_columns"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    matrix_id = Column(
+        Integer,
+        ForeignKey("literature_matrices.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    name = Column(
+        String(255),
+        nullable=False
+    )
+
+    key = Column(
+        String(100),
+        nullable=False
+    )
+
+    is_custom = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    position = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    matrix = relationship(
+        "LiteratureMatrix",
+        back_populates="columns"
+    )
+
+    cells = relationship(
+        "LiteratureMatrixCell",
+        back_populates="column",
+        cascade="all, delete-orphan"
+    )
+
+
+class LiteratureMatrixCell(Base):
+    __tablename__ = "literature_matrix_cells"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    matrix_id = Column(
+        Integer,
+        ForeignKey("literature_matrices.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    paper_id = Column(
+        Integer,
+        ForeignKey("papers.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    column_id = Column(
+        Integer,
+        ForeignKey(
+            "literature_matrix_columns.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False
+    )
+
+    value = Column(
+        Text,
+        nullable=True
+    )
+
+    source = Column(
+        String(30),
+        nullable=False,
+        default="AI"
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    column = relationship(
+        "LiteratureMatrixColumn",
+        back_populates="cells"
+    )
+
+    paper = relationship("Paper")
