@@ -10,7 +10,7 @@ document.addEventListener('alpine:init', () => {
         showNewTask: false,
         selectedTask: null,
         dragTaskId: null,
-        form: { title: '', description: '', due_date: '', milestone_id: '', depends_on_id: '', assignee_id: '' },
+        form: { title: '', description: '', due_date: '', milestone_id: '', new_milestone_title: '', depends_on_id: '', assignee_id: '' },
         apiBaseUrl: 'http://127.0.0.1:8000/api/task-board',
         collabApiBaseUrl: 'http://127.0.0.1:8000/api/collaboration',
 
@@ -109,31 +109,38 @@ document.addEventListener('alpine:init', () => {
             await Promise.all([this.fetchTasks(), this.fetchTimeline()]);
         },
 
-        async createTask() {
-            if (!this.form.title.trim()) return;
-            try {
-                const res = await fetch(`${this.apiBaseUrl}/tasks`, {
-                    method: 'POST', headers: this.authHeaders,
-                    body: JSON.stringify({
-                        project_id: this.projectId,
-                        title: this.form.title,
-                        description: this.form.description || null,
-                        due_date: this.form.due_date || null,
-                        milestone_id: this.form.milestone_id || null,
-                        depends_on_id: this.form.depends_on_id || null,
-                        assignee_id: this.form.assignee_id || null,
-                    })
-                });
-                if (res.ok) {
-                    this.form = { title: '', description: '', due_date: '', milestone_id: '', depends_on_id: '', assignee_id: '' };
-                    this.showNewTask = false;
-                    await this.refreshAll();
-                } else {
-                    const err = await res.json().catch(() => ({}));
-                    alert(err.detail || 'Could not create task.');
-                }
-            } catch (err) { console.error(err); }
-        },
+async createTask() {
+    if (!this.form.title.trim()) return;
+
+    const isNewMilestone = this.form.milestone_id === 'new';
+    const payload = {
+        project_id: this.projectId,
+        title: this.form.title,
+        description: this.form.description || null,
+        due_date: this.form.due_date || null,
+        milestone_id: isNewMilestone ? null : (this.form.milestone_id ? parseInt(this.form.milestone_id) : null),
+        milestone_title: isNewMilestone ? (this.form.new_milestone_title || null) : null,
+        depends_on_id: this.form.depends_on_id ? parseInt(this.form.depends_on_id) : null,
+        assignee_id: this.form.assignee_id ? parseInt(this.form.assignee_id) : null,
+    };
+
+    try {
+        const res = await fetch(`${this.apiBaseUrl}/tasks`, {
+            method: 'POST',
+            headers: this.authHeaders,
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            this.form = { title: '', description: '', due_date: '', milestone_id: '', new_milestone_title: '', depends_on_id: '', assignee_id: '' };
+            this.showNewTask = false;
+            await this.fetchMilestones();
+            await this.refreshAll();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            alert(err.detail || 'Could not create task.');
+        }
+    } catch (err) { console.error(err); }
+},
 
         async deleteTask(t) {
             if (!this.canDelete(t)) {

@@ -249,7 +249,19 @@ def journal_page():
             return redirect(url_for("login"))
     return render_template('journal.html')
 
+@app.route("/literature-matrix")
+def literature_matrix_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
 
+    return render_template(
+        "literature_matrix.html",
+        user=session.get("user")
+    )
+
+@app.route("/projects/<int:project_id>/literature-matrix")
+def project_literature_matrix_redirect(project_id):
+    return redirect(f"/literature-matrix?project_id={project_id}")
 
 @app.route("/projects/<int:project_id>/workspace")
 def project_workspace_view(project_id):

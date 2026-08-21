@@ -17,12 +17,23 @@
             <textarea x-model="form.description" rows="2" placeholder="Description (optional)" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none resize-none"></textarea>
             <input type="date" x-model="form.due_date" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none">
 
+        <div class="space-y-2">
             <select x-model="form.milestone_id" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-white outline-none">
                 <option value="">No milestone</option>
                 <template x-for="m in milestones" :key="m.id">
                     <option :value="m.id" x-text="m.title"></option>
                 </template>
+                <option value="new">+ Create new milestone...</option>
             </select>
+
+            <input 
+                x-show="form.milestone_id === 'new'" 
+                type="text" 
+                x-model="form.new_milestone_title" 
+                placeholder="Enter new milestone title" 
+                class="w-full border border-indigo-300 rounded-lg p-2.5 text-sm outline-none bg-indigo-50/50"
+            >
+        </div>
 
             <select x-model="form.depends_on_id" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-white outline-none">
                 <option value="">No dependency</option>
