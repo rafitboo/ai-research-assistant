@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 
-from app.routers import auth, admin, dashboard , papers, projects, paper_workspace, reading_progress, journal, collaboration, ai_features, research_gaps, supervisor_portal, smart_folders, analytics, billing
+from app.routers import auth, admin, dashboard , papers, projects, paper_workspace, reading_progress, journal, collaboration, ai_features, research_gaps, supervisor_portal, smart_folders, analytics, billing, audit_log
 
 Base.metadata.create_all(bind=engine)
 
@@ -31,6 +31,7 @@ app.include_router(analytics.router)
 app.include_router(billing.router)
 app.include_router(research_gaps.router)
 app.include_router(supervisor_portal.router)
+app.include_router(audit_log.router)
 
 
 @app.get("/")

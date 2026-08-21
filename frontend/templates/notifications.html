@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-5" x-data="notificationsPage('{{ session['token'] }}')" x-init="init()" x-cloak>
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Notifications</h1>
+            <p class="text-sm text-slate-500">Stay on top of what needs your attention.</p>
+        </div>
+        <button type="button" @click="markAllRead" class="text-sm font-bold text-indigo-600 hover:underline">Mark all as read</button>
+    </div>
+
+    <div class="flex gap-2 flex-wrap">
+        <template x-for="f in [
+            { key: 'all', label: 'All' },
+            { key: 'unread', label: 'Unread' },
+            { key: 'milestones', label: 'Tasks' },
+            { key: 'projects', label: 'Projects' },
+            { key: 'reviews', label: 'Reviews' }
+        ]" :key="f.key">
+            <button type="button" @click="filter = f.key"
+                    :class="filter === f.key ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
+                    class="px-4 py-2 rounded-xl border text-xs font-bold transition" x-text="f.label"></button>
+        </template>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-50">
+        <template x-for="n in filteredNotifications" :key="n.id">
+            <a :href="n.link" @click="markRead(n)"
+               class="flex items-start gap-3 px-5 py-4 hover:bg-slate-50 transition"
+               :class="!n.is_read ? 'bg-indigo-50/30' : ''">
+                <span class="text-lg" x-text="typeIcon(n.type)"></span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-slate-800" x-text="n.title || 'Notification'"></p>
+                    <p class="text-sm text-slate-600" x-text="n.message"></p>
+                    <p class="text-xs text-slate-400 mt-1" x-text="formatTime(n.created_at)"></p>
+                </div>
+                <span x-show="!n.is_read" class="w-2.5 h-2.5 rounded-full bg-indigo-500 mt-1 shrink-0"></span>
+            </a>
+        </template>
+        <div x-show="filteredNotifications.length === 0" class="text-center py-16 text-slate-400">
+            <p class="text-3xl mb-2">🔔</p>
+            <p class="text-sm font-medium">Nothing here yet.</p>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/notifications_page.js') }}"></script>
+{% endblock %}

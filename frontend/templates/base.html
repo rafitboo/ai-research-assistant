@@ -19,8 +19,8 @@
         
         {% if session.get('user') %}
         <!-- Left Navigation Sidebar -->
-        <aside class="w-64 bg-[#E0F7FA] border-r border-teal-100 flex flex-col justify-between p-5 flex-shrink-0 min-h-screen sticky top-0 h-screen">
-            <div>
+        <aside class="w-64 bg-[#E0F7FA] border-r border-teal-100 flex flex-col p-5 flex-shrink-0 h-screen sticky top-0">
+            <div class="flex-1 min-h-0 overflow-y-auto pr-1">
                 <!-- Brand Title -->
                 <div class="mb-8 px-2">
                     <h1 class="text-2xl font-black text-[#5B3DF5] tracking-tight">Research AI</h1>
@@ -29,7 +29,7 @@
 
                 <!-- Nav Items -->
             
-                <nav class="space-y-3"></nav>
+                <nav class="space-y-3">
                     {% set path = request.path %}
                     
                     <a href="/" class="flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-bold transition {% if path == '/' %}bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF] shadow-sm{% else %}bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-white{% endif %}">
@@ -73,7 +73,7 @@
             </div>
 
             <!-- Profile Footer -->
-            <div class="flex items-center justify-between p-3 bg-white/70 rounded-xl border border-slate-200">
+            <div class="flex items-center justify-between p-3 bg-white/70 rounded-xl border border-slate-200 mt-4 flex-shrink-0">
                 <div class="truncate">
                     <p class="text-sm font-bold text-slate-900 truncate">{{ session['user']['name'] }}</p>
                     <p class="text-xs text-slate-500 font-medium">{{ session['user']['subscription_tier'] }} Plan</p>
@@ -84,9 +84,47 @@
             </div>
         </aside>
         {% endif %}
-
         <!-- Main Dashboard Content -->
-        <main class="flex-1 p-8 overflow-y-auto">
+        <main class="flex-1 p-8 overflow-y-auto relative">
+            {% if session.get('user') %}
+            <div class="absolute top-2 right-2 z-40" x-data="notificationBell('{{ session['token'] }}')" x-init="init()" x-cloak>
+                <div class="relative">
+                    <button type="button" @click="open = !open" class="relative block leading-none hover:opacity-70 transition">
+                        <span class="text-lg">🔔</span>
+                        <span x-show="unreadCount > 0" x-cloak
+                              class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[7px] font-bold rounded-full min-w-[11px] h-[11px] flex items-center justify-center px-0.5"
+                              x-text="unreadCount > 9 ? '9+' : unreadCount"></span>
+                    </button>
+
+                    <div x-show="open" x-cloak @click.outside="open = false"
+                         class="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-lg z-50 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                            <span class="text-sm font-bold text-slate-900">Notifications</span>
+                            <button type="button" @click="markAllRead" class="text-xs font-bold text-indigo-600 hover:underline">Mark all as read</button>
+                        </div>
+                        <div class="max-h-80 overflow-y-auto">
+                            <template x-for="n in notifications.slice(0, 8)" :key="n.id">
+                                <a :href="n.link" @click="markRead(n)"
+                                   class="block px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition"
+                                   :class="!n.is_read ? 'bg-indigo-50/40' : ''">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-sm" x-text="typeIcon(n.type)"></span>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-xs font-bold text-slate-800 truncate" x-text="n.title || 'Notification'"></p>
+                                            <p class="text-xs text-slate-500 line-clamp-2" x-text="n.message"></p>
+                                            <p class="text-[10px] text-slate-400 mt-0.5" x-text="formatTime(n.created_at)"></p>
+                                        </div>
+                                        <span x-show="!n.is_read" class="w-2 h-2 rounded-full bg-indigo-500 mt-1 shrink-0"></span>
+                                    </div>
+                                </a>
+                            </template>
+                            <p x-show="notifications.length === 0" class="text-xs text-slate-400 italic text-center py-6">You're all caught up.</p>
+                        </div>
+                        <a href="/notifications" class="block text-center text-xs font-bold text-indigo-600 hover:bg-slate-50 py-3 border-t border-slate-100">View all notifications</a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="max-w-7xl mx-auto mb-6">
@@ -102,5 +140,8 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+{% if session.get('user') %}
+<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+{% endif %}
 </body>
 </html>

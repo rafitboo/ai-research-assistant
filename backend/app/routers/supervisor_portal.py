@@ -17,6 +17,8 @@ from app.models import (
     ResearchMilestone,
     MilestoneReview
 )
+from app.notifications import create_notification
+from app.audit import log_audit
 
 
 router = APIRouter(
@@ -145,8 +147,10 @@ def has_meeting_collision(
     return "You already have another meeting in this time range."
 
 
-def notify(db: Session, user_id: int, message: str) -> None:
-    db.add(Notification(user_id=user_id, message=message, is_read=0))
+def notify(db: Session, user_id: int, message: str, type: str = None, title: str = None,
+           project_id: int = None, reference_id: int = None) -> None:
+    create_notification(db, user_id, message, type=type, title=title,
+                         project_id=project_id, reference_id=reference_id)
 
 
 @router.get("/projects")
@@ -303,9 +307,21 @@ def request_meeting(
         status="Pending",
     )
     db.add(meeting)
-    notify(db, payload.supervisor_id, f"New consultation request: {payload.topic.strip()}")
+    notify(
+        db, payload.supervisor_id, f"New consultation request: {payload.topic.strip()}",
+        type="meeting_requested", title="Consultation request",
+        project_id=payload.project_id,
+    )
     db.commit()
     db.refresh(meeting)
+
+    log_audit(
+        db, payload.project_id, user_id,
+        action="meeting.requested",
+        description=f"Consultation requested: {meeting.topic}.",
+        entity_type="meeting", entity_id=meeting.id,
+    )
+    db.commit()
 
     return {"message": "Meeting request submitted", "meeting_id": meeting.id}
 
@@ -348,10 +364,18 @@ def decide_meeting(
     meeting.status = payload.decision
     meeting.supervisor_response = payload.response.strip() if payload.response else None
 
-    if payload.decision == "Approved":
-        notify(db, meeting.requester_id, f"Your consultation request for '{meeting.topic}' was approved.")
-    else:
-        notify(db, meeting.requester_id, f"Your consultation request for '{meeting.topic}' was declined.")
+    notify(
+        db, meeting.requester_id, f"Your consultation request for '{meeting.topic}' was {payload.decision.lower()}.",
+        type="meeting_decided", title=f"Consultation {payload.decision}",
+        project_id=meeting.project_id, reference_id=meeting.id,
+    )
+
+    log_audit(
+        db, meeting.project_id, user_id,
+        action="meeting.decided",
+        description=f"Consultation '{meeting.topic}' was {payload.decision.lower()}.",
+        entity_type="meeting", entity_id=meeting.id,
+    )
 
     db.commit()
     return {"message": f"Meeting request {payload.decision.lower()}"}
@@ -443,6 +467,14 @@ def create_milestone(
     db.commit()
     db.refresh(milestone)
 
+    log_audit(
+        db, payload.project_id, user_id,
+        action="milestone.created",
+        description=f"Milestone '{milestone.title}' was created.",
+        entity_type="milestone", entity_id=milestone.id,
+    )
+    db.commit()
+
     return {"message": "Milestone created", "milestone_id": milestone.id}
 
 
@@ -467,7 +499,13 @@ def submit_milestone(
 
     milestone.status = "Pending Review"
     milestone.submitted_at = datetime.now(timezone.utc)
-    db.commit()
+
+    log_audit(
+        db, milestone.project_id, user_id,
+        action="milestone.submitted",
+        description=f"Milestone '{milestone.title}' was submitted for review.",
+        entity_type="milestone", entity_id=milestone.id,
+    )
 
     supervisors = (
         db.query(ProjectMember)
@@ -475,7 +513,11 @@ def submit_milestone(
         .all()
     )
     for supervisor in supervisors:
-        notify(db, supervisor.user_id, f"Milestone submitted for review: {milestone.title}")
+        notify(
+            db, supervisor.user_id, f"Milestone submitted for review: {milestone.title}",
+            type="milestone_submitted", title="Milestone submitted",
+            project_id=milestone.project_id, reference_id=milestone.id,
+        )
     db.commit()
 
     return {"message": "Milestone submitted for review"}
@@ -513,7 +555,21 @@ def review_milestone(
         comments=payload.comments.strip() if payload.comments else None,
     )
     db.add(review)
-    notify(db, milestone.created_by, f"Milestone '{milestone.title}' was marked {payload.decision}.")
+
+    notif_type = "milestone_approved" if payload.decision == "Approved" else "milestone_revision"
+    notify(
+        db, milestone.created_by, f"Milestone '{milestone.title}' was marked {payload.decision}.",
+        type=notif_type, title=f"Milestone {payload.decision}",
+        project_id=milestone.project_id, reference_id=milestone.id,
+    )
+
+    log_audit(
+        db, milestone.project_id, user_id,
+        action="milestone.reviewed",
+        description=f"Milestone '{milestone.title}' was marked {payload.decision}.",
+        entity_type="milestone", entity_id=milestone.id,
+    )
+
     db.commit()
 
     return {"message": f"Milestone {payload.decision.lower()}"}

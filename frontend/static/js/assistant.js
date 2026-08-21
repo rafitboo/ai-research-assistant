@@ -19,6 +19,14 @@ document.addEventListener('alpine:init', () => {
         savedTitles: [],
         titlesError: '',
 
+        // --- Extract Insights / Hypothesis Generator / Research Gap Finder state ---
+        insights: { paperQuery: '', paperSuggestions: [], selectedPaper: null, isRunning: false, error: '', data: null },
+        hypothesis: { paperQuery: '', paperSuggestions: [], selectedPaper: null, isRunning: false, error: '', data: null },
+        gaps: { paperQuery: '', paperSuggestions: [], selectedPaper: null, isRunning: false, error: '', data: null },
+
+        // --- Starred Items state ---
+        starred: { activeCategory: 'insights', data: null, isLoading: false, error: '' },
+    
         get authHeaders() {
             return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.authToken}` };
         },
@@ -110,6 +118,158 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch('http://127.0.0.1:8000/api/ai/titles/saved', { headers: this.authHeaders });
                 if (res.ok) this.savedTitles = await res.json();
             } catch (err) { console.error(err); }
+        },
+
+        // --- Extract Insights / Hypothesis Generator / Research Gap Finder: shared paper search ---
+        async searchPapersInto(toolKey) {
+            const s = this[toolKey];
+            if (s.paperQuery.trim().length < 2) { s.paperSuggestions = []; return; }
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/journal/autocomplete-papers?q=${encodeURIComponent(s.paperQuery)}`, { headers: this.authHeaders });
+                if (res.ok) s.paperSuggestions = await res.json();
+            } catch (err) { console.error(err); }
+        },
+        selectPaperInto(toolKey, paper) {
+            const s = this[toolKey];
+            s.selectedPaper = paper;
+            s.paperQuery = paper.title;
+            s.paperSuggestions = [];
+        },
+
+        // --- Extract Insights (reuses the existing summary generate/get endpoints) ---
+        async runInsights() {
+            const s = this.insights;
+            if (!s.selectedPaper) return;
+            s.isRunning = true; s.error = '';
+            try {
+                const paperId = s.selectedPaper.id;
+                const genRes = await fetch(`http://127.0.0.1:8000/api/ai/summary/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
+                if (!genRes.ok) {
+                    const err = await genRes.json().catch(() => ({}));
+                    s.error = err.detail || `Request failed (${genRes.status})`;
+                    s.isRunning = false;
+                    return;
+                }
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/summary/${paperId}`, { headers: this.authHeaders });
+                const json = await res.json();
+                if (json.status === 'exists') s.data = json.data.insights;
+            } catch (err) { s.error = err.message; console.error(err); }
+            s.isRunning = false;
+        },
+
+        // --- Hypothesis Generator ---
+        async runHypothesis() {
+            const s = this.hypothesis;
+            if (!s.selectedPaper) return;
+            s.isRunning = true; s.error = '';
+            try {
+                const paperId = s.selectedPaper.id;
+                const genRes = await fetch(`http://127.0.0.1:8000/api/ai/hypothesis/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
+                if (!genRes.ok) {
+                    const err = await genRes.json().catch(() => ({}));
+                    s.error = err.detail || `Request failed (${genRes.status})`;
+                    s.isRunning = false;
+                    return;
+                }
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/hypothesis/${paperId}`, { headers: this.authHeaders });
+                const json = await res.json();
+                if (json.status === 'exists') s.data = json.data;
+            } catch (err) { s.error = err.message; console.error(err); }
+            s.isRunning = false;
+        },
+
+        // --- Research Gap Finder (single-paper) ---
+        async runGaps() {
+            const s = this.gaps;
+            if (!s.selectedPaper) return;
+            s.isRunning = true; s.error = '';
+            try {
+                const paperId = s.selectedPaper.id;
+                const genRes = await fetch(`http://127.0.0.1:8000/api/ai/gaps/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
+                if (!genRes.ok) {
+                    const err = await genRes.json().catch(() => ({}));
+                    s.error = err.detail || `Request failed (${genRes.status})`;
+                    s.isRunning = false;
+                    return;
+                }
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/gaps/${paperId}`, { headers: this.authHeaders });
+                const json = await res.json();
+                if (json.status === 'exists') s.data = json.data;
+            } catch (err) { s.error = err.message; console.error(err); }
+            s.isRunning = false;
+        },
+
+        // --- Starred Items ---
+        async fetchStarredItems() {
+            this.starred.isLoading = true;
+            this.starred.error = '';
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/ai/starred', { headers: this.authHeaders });
+                if (res.ok) {
+                    this.starred.data = await res.json();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    this.starred.error = err.detail || `Request failed (${res.status})`;
+                }
+            } catch (err) {
+                this.starred.error = err.message;
+                console.error(err);
+            }
+            this.starred.isLoading = false;
+        },
+        async unstarItem(categoryKey, item) {
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}/star`, { method: 'POST', headers: this.authHeaders });
+                if (res.ok) {
+                    this.starred.data[categoryKey] = this.starred.data[categoryKey].filter(i => i.id !== item.id);
+                }
+            } catch (err) { console.error(err); }
+        },
+        async unstarTitle(item) {
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/titles/saved/${item.id}`, { method: 'DELETE', headers: this.authHeaders });
+                if (res.ok) {
+                    this.starred.data.titles = this.starred.data.titles.filter(i => i.id !== item.id);
+                }
+            } catch (err) { console.error(err); }
+        },
+
+        // --- Per-point actions shared by Extract Insights, Hypothesis Generator, Research Gap Finder ---
+        async toggleStar(item) {
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}/star`, { method: 'POST', headers: this.authHeaders });
+                if (res.ok) { const json = await res.json(); item.starred = json.starred; }
+            } catch (err) { console.error(err); }
+        },
+        startEdit(item) { item._editing = true; item._editBuffer = item.content; },
+        cancelEdit(item) { item._editing = false; },
+        async saveEdit(item) {
+            if (!item._editBuffer || !item._editBuffer.trim()) return;
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}`, {
+                    method: 'PUT', headers: this.authHeaders, body: JSON.stringify({ content: item._editBuffer })
+                });
+                if (res.ok) { item.content = item._editBuffer; item._editing = false; }
+            } catch (err) { console.error(err); }
+        },
+        async regeneratePoint(item) {
+            item._regenerating = true;
+            item._regenError = '';
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}/regenerate`, { method: 'POST', headers: this.authHeaders });
+                if (res.ok) {
+                    const json = await res.json();
+                    item.content = json.content;
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    item._regenError = err.detail || `Request failed (${res.status})`;
+                    console.error('Regenerate failed:', item._regenError);
+                }
+            } catch (err) {
+                item._regenError = err.message;
+                console.error(err);
+            }
+            item._regenerating = false;
         },
 
         // --- Shared ---

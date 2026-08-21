@@ -323,6 +323,12 @@ def library_analytics_view():
         return redirect(url_for("login"))
     return render_template("analytics.html", user=session.get("user"))
 
+@app.route("/notifications")
+def notifications_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("notifications.html", user=session.get("user"))
+
 @app.route("/billing")
 def billing_dashboard():
     if "token" not in session:

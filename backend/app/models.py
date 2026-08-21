@@ -142,8 +142,30 @@ class Notification(Base):
     message = Column(Text, nullable=False)
     is_read = Column(Integer, default=0)  # 0 = unread (triggers badge), 1 = read
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
+    # Added for the Global Notification Center. All nullable so existing
+    # Notification(user_id=..., message=...) call sites keep working unchanged.
+    type = Column(String, nullable=True)         
+    title = Column(String, nullable=True)        
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
+    reference_id = Column(Integer, nullable=True)  
+
     user = relationship("User", backref="notifications")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    action = Column(String, nullable=False)        
+    entity_type = Column(String, nullable=True)      
+    entity_id = Column(Integer, nullable=True)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    project = relationship("Project", backref="audit_logs")
+    user = relationship("User")
 
 
 class PaperSummary(Base):
@@ -159,8 +181,9 @@ class PaperInsight(Base):
     __tablename__ = "paper_insights"
     id = Column(Integer, primary_key=True, index=True)
     paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"))
-    category = Column(String, nullable=False) # contribution, advantage, limitation, future_work
+    category = Column(String, nullable=False) # contribution, advantage, limitation, future_work, hyp_*, gap_*
     content = Column(Text, nullable=False)
+    starred = Column(Integer, default=0)  # 0/1, same pattern as JournalEntry.pinned
 
 class SavedTitle(Base):
     __tablename__ = "saved_titles"
