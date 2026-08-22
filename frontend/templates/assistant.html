@@ -21,25 +21,25 @@
                     class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
                 Extract Insights
             </button>
-            <button type="button" @click="activeTool = 'chat'"
-                    :class="activeTool === 'chat' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
-                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
-                Chat with Paper
-            </button>
             <button type="button" @click="activeTool = 'gaps'"
                     :class="activeTool === 'gaps' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
                     class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
                 Research Gap Finder
             </button>
-            <button type="button" @click="activeTool = 'questions'"
-                    :class="activeTool === 'questions' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+            <button type="button" @click="activeTool = 'hypothesis'"
+                    :class="activeTool === 'hypothesis' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
                     class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
-                Research Questions
+                Hypothesis Generator
             </button>
             <button type="button" @click="activeTool = 'titles'"
                     :class="activeTool === 'titles' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
                     class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
                 Title Generator
+            </button>
+            <button type="button" @click="activeTool = 'starred'; fetchStarredItems()"
+                    :class="activeTool === 'starred' ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                    class="w-full text-left px-4 py-3 rounded-2xl border text-sm font-bold transition">
+                Starred Items
             </button>
         </div>
 
@@ -107,31 +107,236 @@
                 </div>
             </template>
 
-            <!-- EXTRACT INSIGHTS (placeholder) -->
+            <!-- EXTRACT INSIGHTS -->
             <template x-if="activeTool === 'insights'">
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
-                    Extract Insights — coming soon.
+                <div class="space-y-5">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <h2 class="text-lg font-bold text-slate-900 mb-3">Extract Insights</h2>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+                            <input type="text" x-model="insights.paperQuery" @input="searchPapersInto('insights')"
+                                   placeholder="Search a paper by title..."
+                                   class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <div x-show="insights.paperSuggestions.length > 0" x-cloak
+                                 class="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                                <template x-for="p in insights.paperSuggestions" :key="p.id">
+                                    <button type="button" @click="selectPaperInto('insights', p)"
+                                            class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                        <span x-text="p.title"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <button type="button" @click="runInsights" :disabled="!insights.selectedPaper || insights.isRunning"
+                                class="mt-4 bg-[#5B3DF5] hover:bg-[#4A3AFF] text-white font-bold rounded-xl px-6 py-2.5 text-sm shadow-sm transition disabled:opacity-50">
+                            <span x-text="insights.isRunning ? 'RUNNING...' : 'RUN'"></span>
+                        </button>
+                    </div>
+
+                    <p x-show="insights.error" class="text-sm text-red-600 font-medium" x-text="insights.error"></p>
+
+                    <template x-if="insights.data">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <template x-for="section in [
+                                { key: 'contribution', title: 'Contributions', icon: '🚀' },
+                                { key: 'advantage', title: 'Advantages', icon: '✅' },
+                                { key: 'limitation', title: 'Limitations', icon: '⚠️' },
+                                { key: 'future_work', title: 'Future Work', icon: '🔭' }
+                            ]" :key="section.key">
+                                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                                    <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                                        <span x-text="section.icon"></span> <span x-text="section.title"></span>
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <template x-for="item in insights.data[section.key]" :key="item.id">
+                                            <div class="p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                                                <template x-if="!item._editing">
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <p class="text-sm text-slate-700 leading-relaxed flex-1" x-text="item.content"></p>
+                                                        <div class="flex items-center gap-1 shrink-0">
+                                                            <button type="button" @click="toggleStar(item)" :title="item.starred ? 'Unstar' : 'Star'"
+                                                                    :class="item.starred ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'" class="text-base">⭐</button>
+                                                            <button type="button" @click="startEdit(item)" title="Edit" class="text-slate-400 hover:text-indigo-600 text-xs">✏️</button>
+                                                            <button type="button" @click="regeneratePoint(item)" :disabled="item._regenerating" title="Regenerate" class="text-slate-400 hover:text-indigo-600 disabled:opacity-40">
+                                                                <svg x-show="!item._regenerating" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                                                                    <path d="M23 4v6h-6"></path>
+                                                                    <path d="M1 20v-6h6"></path>
+                                                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                                                                </svg>
+                                                                <span x-show="item._regenerating" class="text-xs">...</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <div x-show="item._editing" x-cloak class="space-y-2">
+                                                    <textarea x-model="item._editBuffer" rows="2" class="w-full border border-slate-300 rounded-lg p-2 text-sm text-slate-700"></textarea>
+                                                    <div class="flex gap-2 justify-end">
+                                                        <button type="button" @click="cancelEdit(item)" class="px-3 py-1 text-xs text-slate-600">Cancel</button>
+                                                        <button type="button" @click="saveEdit(item)" class="px-3 py-1 text-xs text-white bg-indigo-600 rounded-md">Save</button>
+                                                    </div>
+                                                </div>
+                                                <p x-show="item._regenError" x-cloak class="text-xs text-red-600 font-medium mt-1" x-text="item._regenError"></p>
+                                            </div>
+                                        </template>
+                                        <p x-show="insights.data[section.key].length === 0" class="text-xs text-slate-400 italic">No points yet.</p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <p x-show="!insights.data" class="text-sm text-slate-400 italic">Search a paper and click RUN to extract insights.</p>
                 </div>
             </template>
 
-            <!-- CHAT WITH PAPER (placeholder) -->
-            <template x-if="activeTool === 'chat'">
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
-                    Chat with Paper — coming soon.
-                </div>
-            </template>
-
-            <!-- RESEARCH GAP FINDER (placeholder) -->
+            <!-- RESEARCH GAP FINDER -->
             <template x-if="activeTool === 'gaps'">
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
-                    Research Gap Finder — coming soon.
+                <div class="space-y-5">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <h2 class="text-lg font-bold text-slate-900 mb-3">Research Gap Finder</h2>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+                            <input type="text" x-model="gaps.paperQuery" @input="searchPapersInto('gaps')"
+                                   placeholder="Search a paper by title..."
+                                   class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <div x-show="gaps.paperSuggestions.length > 0" x-cloak
+                                 class="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                                <template x-for="p in gaps.paperSuggestions" :key="p.id">
+                                    <button type="button" @click="selectPaperInto('gaps', p)"
+                                            class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                        <span x-text="p.title"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <button type="button" @click="runGaps" :disabled="!gaps.selectedPaper || gaps.isRunning"
+                                class="mt-4 bg-[#5B3DF5] hover:bg-[#4A3AFF] text-white font-bold rounded-xl px-6 py-2.5 text-sm shadow-sm transition disabled:opacity-50">
+                            <span x-text="gaps.isRunning ? 'RUNNING...' : 'RUN'"></span>
+                        </button>
+                    </div>
+
+                    <p x-show="gaps.error" class="text-sm text-red-600 font-medium" x-text="gaps.error"></p>
+
+                    <template x-if="gaps.data">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <template x-for="section in [
+                                { key: 'context', title: 'What Was Missing / Overlooked', icon: '🕳️' },
+                                { key: 'location', title: 'Where the Gap Exists', icon: '📍' },
+                                { key: 'response', title: 'How the Paper Responds', icon: '🛠️' },
+                                { key: 'significance', title: 'Why It Matters', icon: '🎯' }
+                            ]" :key="section.key">
+                                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                                    <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                                        <span x-text="section.icon"></span> <span x-text="section.title"></span>
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <template x-for="item in gaps.data[section.key]" :key="item.id">
+                                            <div class="p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                                                <template x-if="!item._editing">
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <p class="text-sm text-slate-700 leading-relaxed flex-1" x-text="item.content"></p>
+                                                        <div class="flex items-center gap-1 shrink-0">
+                                                            <button type="button" @click="toggleStar(item)" :title="item.starred ? 'Unstar' : 'Star'"
+                                                                    :class="item.starred ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'" class="text-base">⭐</button>
+                                                            <button type="button" @click="startEdit(item)" title="Edit" class="text-slate-400 hover:text-indigo-600 text-xs">✏️</button>
+                                                            <button type="button" @click="regeneratePoint(item)" :disabled="item._regenerating" title="Regenerate" class="text-slate-400 hover:text-indigo-600 text-xs disabled:opacity-40">
+                                                                <span x-text="item._regenerating ? '...' : '🔄'"></span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <div x-show="item._editing" x-cloak class="space-y-2">
+                                                    <textarea x-model="item._editBuffer" rows="2" class="w-full border border-slate-300 rounded-lg p-2 text-sm text-slate-700"></textarea>
+                                                    <div class="flex gap-2 justify-end">
+                                                        <button type="button" @click="cancelEdit(item)" class="px-3 py-1 text-xs text-slate-600">Cancel</button>
+                                                        <button type="button" @click="saveEdit(item)" class="px-3 py-1 text-xs text-white bg-indigo-600 rounded-md">Save</button>
+                                                    </div>
+                                                </div>
+                                                <p x-show="item._regenError" x-cloak class="text-xs text-red-600 font-medium mt-1" x-text="item._regenError"></p>
+                                            </div>
+                                        </template>
+                                        <p x-show="gaps.data[section.key].length === 0" class="text-xs text-slate-400 italic">No points yet.</p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <p x-show="!gaps.data" class="text-sm text-slate-400 italic">Search a paper and click RUN to find its research gap.</p>
                 </div>
             </template>
 
-            <!-- RESEARCH QUESTIONS (placeholder) -->
-            <template x-if="activeTool === 'questions'">
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center text-slate-400 text-sm font-medium">
-                    Research Questions — coming soon.
+            <!-- HYPOTHESIS GENERATOR -->
+            <template x-if="activeTool === 'hypothesis'">
+                <div class="space-y-5">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <h2 class="text-lg font-bold text-slate-900 mb-3">Hypothesis Generator</h2>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+                            <input type="text" x-model="hypothesis.paperQuery" @input="searchPapersInto('hypothesis')"
+                                   placeholder="Search a paper by title..."
+                                   class="w-full pl-9 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <div x-show="hypothesis.paperSuggestions.length > 0" x-cloak
+                                 class="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                                <template x-for="p in hypothesis.paperSuggestions" :key="p.id">
+                                    <button type="button" @click="selectPaperInto('hypothesis', p)"
+                                            class="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                        <span x-text="p.title"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <button type="button" @click="runHypothesis" :disabled="!hypothesis.selectedPaper || hypothesis.isRunning"
+                                class="mt-4 bg-[#5B3DF5] hover:bg-[#4A3AFF] text-white font-bold rounded-xl px-6 py-2.5 text-sm shadow-sm transition disabled:opacity-50">
+                            <span x-text="hypothesis.isRunning ? 'RUNNING...' : 'RUN'"></span>
+                        </button>
+                    </div>
+
+                    <p x-show="hypothesis.error" class="text-sm text-red-600 font-medium" x-text="hypothesis.error"></p>
+
+                    <template x-if="hypothesis.data">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <template x-for="section in [
+                                { key: 'core_variable', title: 'Core Variable Extraction', icon: '🧪' },
+                                { key: 'structural_context', title: 'Structural & Contextual Elements', icon: '🏗️' },
+                                { key: 'methodological_alignment', title: 'Methodological Alignment', icon: '🧭' },
+                                { key: 'logical_justification', title: 'Logical Justification', icon: '🔗' }
+                            ]" :key="section.key">
+                                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                                    <h3 class="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                                        <span x-text="section.icon"></span> <span x-text="section.title"></span>
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <template x-for="item in hypothesis.data[section.key]" :key="item.id">
+                                            <div class="p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                                                <template x-if="!item._editing">
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <p class="text-sm text-slate-700 leading-relaxed flex-1" x-text="item.content"></p>
+                                                        <div class="flex items-center gap-1 shrink-0">
+                                                            <button type="button" @click="toggleStar(item)" :title="item.starred ? 'Unstar' : 'Star'"
+                                                                    :class="item.starred ? 'text-amber-500' : 'text-slate-300 hover:text-amber-500'" class="text-base">⭐</button>
+                                                            <button type="button" @click="startEdit(item)" title="Edit" class="text-slate-400 hover:text-indigo-600 text-xs">✏️</button>
+                                                            <button type="button" @click="regeneratePoint(item)" :disabled="item._regenerating" title="Regenerate" class="text-slate-400 hover:text-indigo-600 text-xs disabled:opacity-40">
+                                                                <span x-text="item._regenerating ? '...' : '🔄'"></span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <div x-show="item._editing" x-cloak class="space-y-2">
+                                                    <textarea x-model="item._editBuffer" rows="2" class="w-full border border-slate-300 rounded-lg p-2 text-sm text-slate-700"></textarea>
+                                                    <div class="flex gap-2 justify-end">
+                                                        <button type="button" @click="cancelEdit(item)" class="px-3 py-1 text-xs text-slate-600">Cancel</button>
+                                                        <button type="button" @click="saveEdit(item)" class="px-3 py-1 text-xs text-white bg-indigo-600 rounded-md">Save</button>
+                                                    </div>
+                                                </div>
+                                                <p x-show="item._regenError" x-cloak class="text-xs text-red-600 font-medium mt-1" x-text="item._regenError"></p>
+                                            </div>
+                                        </template>
+                                        <p x-show="hypothesis.data[section.key].length === 0" class="text-xs text-slate-400 italic">No points yet.</p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <p x-show="!hypothesis.data" class="text-sm text-slate-400 italic">Search a paper and click RUN to generate hypothesis points.</p>
                 </div>
             </template>
 
@@ -188,6 +393,79 @@
                                 </div>
                             </template>
                         </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- STARRED ITEMS -->
+            <template x-if="activeTool === 'starred'">
+                <div class="space-y-5">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Starred Items</h2>
+                        <p class="text-sm text-slate-500">Your saved research insights and content</p>
+                    </div>
+
+                    <p x-show="starred.error" class="text-sm text-red-600 font-medium" x-text="starred.error"></p>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <template x-for="cat in [
+                            { key: 'insights', title: 'Insights', icon: '💡' },
+                            { key: 'gaps', title: 'Research Gaps', icon: '🕳️' },
+                            { key: 'hypothesis', title: 'Hypothesis', icon: '🧪' },
+                            { key: 'titles', title: 'Titles', icon: '🏷️' }
+                        ]" :key="cat.key">
+                            <button type="button" @click="starred.activeCategory = cat.key"
+                                    :class="starred.activeCategory === cat.key ? 'bg-[#C8C2FF] border-[#6C5CE7] text-[#4A3AFF]' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                                    class="w-full flex flex-col items-center gap-1 px-4 py-4 rounded-2xl border text-sm font-bold transition">
+                                <span class="text-xl" x-text="cat.icon"></span>
+                                <span x-text="cat.title"></span>
+                                <span class="text-xs font-medium text-slate-400"
+                                      x-text="starred.data ? (starred.data[cat.key] ? starred.data[cat.key].length : 0) + ' saved' : ''"></span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <p x-show="starred.isLoading" class="text-sm text-slate-400 italic">Loading starred items...</p>
+
+                        <template x-if="!starred.isLoading && starred.data">
+                            <div>
+                                <!-- Insights / Gaps / Hypothesis: same content+unstar layout -->
+                                <template x-if="starred.activeCategory !== 'titles'">
+                                    <div class="space-y-2">
+                                        <template x-for="item in starred.data[starred.activeCategory]" :key="item.id">
+                                            <div class="p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <div class="flex-1">
+                                                        <p class="text-xs font-bold text-indigo-600 mb-1" x-text="item.paper_title"></p>
+                                                        <p class="text-sm text-slate-700 leading-relaxed" x-text="item.content"></p>
+                                                    </div>
+                                                    <button type="button" @click="unstarItem(starred.activeCategory, item)" title="Unstar" class="text-amber-500 hover:text-slate-400 text-base shrink-0">⭐</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <p x-show="starred.data[starred.activeCategory].length === 0" class="text-sm text-slate-400 italic text-center py-6">
+                                            No starred items in this category yet. Click the ⭐ next to any generated point to save it here.
+                                        </p>
+                                    </div>
+                                </template>
+
+                                <!-- Titles: separate shape (title_text, no paper) -->
+                                <template x-if="starred.activeCategory === 'titles'">
+                                    <div class="space-y-2">
+                                        <template x-for="item in starred.data.titles" :key="item.id">
+                                            <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                                                <span class="text-sm text-slate-700 font-medium" x-text="item.title_text"></span>
+                                                <button type="button" @click="unstarTitle(item)" title="Unstar" class="text-amber-500 hover:text-slate-400 text-base shrink-0">⭐</button>
+                                            </div>
+                                        </template>
+                                        <p x-show="starred.data.titles.length === 0" class="text-sm text-slate-400 italic text-center py-6">
+                                            No starred titles yet. Click the ⭐ next to any generated title to save it here.
+                                        </p>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </template>

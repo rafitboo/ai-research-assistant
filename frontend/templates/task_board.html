@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="min-h-screen bg-slate-50 p-6 md:p-8 max-w-7xl mx-auto" x-data="taskBoardApp({{ project_id }}, '{{ session['token'] }}')" x-init="init()" x-cloak>
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-semibold text-slate-900">Task Board &amp; Milestone Timeline</h1>
+            <a href="/projects/{{ project_id }}/workspace" class="text-sm text-indigo-600 hover:underline mt-1 inline-block">&larr; Back to Workspace</a>
+        </div>
+        <button @click="showNewTask = true" class="bg-indigo-600 text-white font-medium rounded-lg px-4 py-2.5 hover:bg-indigo-700">+ New Task</button>
+    </div>
+
+    <!-- New Task Modal -->
+    <div x-show="showNewTask" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md space-y-3" @click.outside="showNewTask = false">
+            <h2 class="text-lg font-bold text-slate-900">New Task</h2>
+            <input type="text" x-model="form.title" placeholder="Task title" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none">
+            <textarea x-model="form.description" rows="2" placeholder="Description (optional)" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none resize-none"></textarea>
+            <input type="date" x-model="form.due_date" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm outline-none">
+
+        <div class="space-y-2">
+            <select x-model="form.milestone_id" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-white outline-none">
+                <option value="">No milestone</option>
+                <template x-for="m in milestones" :key="m.id">
+                    <option :value="m.id" x-text="m.title"></option>
+                </template>
+                <option value="new">+ Create new milestone...</option>
+            </select>
+
+            <input 
+                x-show="form.milestone_id === 'new'" 
+                type="text" 
+                x-model="form.new_milestone_title" 
+                placeholder="Enter new milestone title" 
+                class="w-full border border-indigo-300 rounded-lg p-2.5 text-sm outline-none bg-indigo-50/50"
+            >
+        </div>
+
+            <select x-model="form.depends_on_id" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-white outline-none">
+                <option value="">No dependency</option>
+                <template x-for="t in tasks" :key="t.id">
+                    <option :value="t.id" x-text="t.title"></option>
+                </template>
+            </select>
+
+            <select x-model="form.assignee_id" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm bg-white outline-none">
+                <option value="">Unassigned</option>
+                <template x-for="m in members" :key="m.user_id">
+                    <option :value="m.user_id" x-text="m.user_id === currentUserId ? (m.name + ' (You)') : m.name"></option>
+                </template>
+            </select>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button @click="showNewTask = false" class="px-4 py-2 text-sm rounded-lg text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button @click="createTask" class="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Detail Modal (click a card to see its description) -->
+    <div x-show="selectedTask" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md space-y-3" @click.outside="closeTask()" x-cloak>
+            <template x-if="selectedTask">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-start">
+                        <h2 class="text-lg font-bold text-slate-900" x-text="selectedTask.title"></h2>
+                        <button @click="closeTask()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
+                    </div>
+                    <p class="text-sm text-slate-600 whitespace-pre-wrap" x-text="selectedTask.description || 'No description provided.'"></p>
+                    <div class="text-xs text-slate-500 space-y-1 pt-2 border-t border-slate-100">
+                        <p x-show="selectedTask.due_date" x-text="'Due ' + selectedTask.due_date"></p>
+                        <p x-text="assigneeLabel(selectedTask)"></p>
+                        <p x-text="'Created by ' + selectedTask.created_by_name"></p>
+                        <p x-text="'Status: ' + selectedTask.status"></p>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button x-show="canDelete(selectedTask)" @click="deleteTask(selectedTask)" class="px-3 py-1.5 text-xs rounded-lg text-rose-600 hover:bg-rose-50">Delete Task</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="mb-6 bg-white rounded-xl border border-slate-200 p-4" x-show="tasks.length > 0">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-slate-700">Completion</span>
+            <span class="text-sm text-slate-500" x-text="doneCount + ' / ' + tasks.length + ' tasks (' + progressPct + '%)'"></span>
+        </div>
+        <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+            <div class="h-full bg-emerald-500 transition-all duration-300" :style="`width: ${progressPct}%`"></div>
+        </div>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <template x-for="col in ['Todo', 'In Progress', 'Done']" :key="col">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4"
+                 @dragover.prevent @drop="onDrop(col)">
+                <h2 class="text-sm font-bold text-slate-700 mb-3 flex items-center justify-between">
+                    <span x-text="col"></span>
+                    <span class="text-xs text-slate-400" x-text="tasksByStatus(col).length"></span>
+                </h2>
+                <div class="space-y-3 min-h-[120px]">
+                    <template x-for="t in tasksByStatus(col)" :key="t.id">
+                        <div :draggable="canDrag(t)" @dragstart="dragTaskId = t.id" @click="openTask(t)"
+                             class="p-3 rounded-xl border bg-slate-50"
+                             :class="[t.is_overdue ? 'border-rose-300 bg-rose-50' : 'border-slate-100', canDrag(t) ? 'cursor-pointer' : 'cursor-not-allowed opacity-80']">
+                            <div class="flex justify-between items-start gap-2">
+                                <p class="text-sm font-medium text-slate-800" x-text="t.title"></p>
+                                <button x-show="canDelete(t)" @click.stop="deleteTask(t)" class="text-slate-300 hover:text-rose-500 text-xs">&times;</button>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1" x-show="t.due_date" x-text="'Due ' + t.due_date"></p>
+                            <p class="text-xs text-indigo-500 mt-1" x-text="assigneeLabel(t)"></p>
+                            <p class="text-xs text-amber-600 mt-1" x-show="!t.depends_on_done" x-text="'Blocked by: ' + t.depends_on_title"></p>
+                            <span x-show="t.is_overdue" class="inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">OVERDUE</span>
+                        </div>
+                    </template>
+                    <p x-show="tasksByStatus(col).length === 0" class="text-xs text-slate-400 italic text-center py-4">No tasks here.</p>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Milestone Timeline -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">Milestone Timeline</h2>
+        <div class="space-y-6">
+            <template x-for="group in timeline" :key="group.milestone_id || 'unassigned'">
+                <div class="border-l-2 pl-4" :class="group.has_overdue ? 'border-rose-400' : 'border-indigo-300'">
+                    <div class="flex items-center gap-2 mb-2">
+                        <h3 class="text-sm font-bold text-slate-800" x-text="group.milestone_title"></h3>
+                        <span class="text-xs text-slate-400" x-show="group.due_date" x-text="'· due ' + group.due_date"></span>
+                        <span x-show="group.has_overdue" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">HAS OVERDUE</span>
+                    </div>
+                    <div class="space-y-1">
+                        <template x-for="t in group.tasks" :key="t.id">
+                            <div class="text-xs flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full" :class="t.status === 'Done' ? 'bg-emerald-500' : t.is_overdue ? 'bg-rose-500' : t.status === 'In Progress' ? 'bg-amber-400' : 'bg-slate-300'"></span>
+                                <span :class="t.is_overdue ? 'text-rose-600 font-medium' : 'text-slate-600'" x-text="t.title"></span>
+                                <span class="text-slate-400" x-text="'(' + t.status + ')'"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+            <p x-show="timeline.length === 0" class="text-sm text-slate-400 italic text-center py-6">No tasks yet.</p>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/task_board.js') }}"></script>
+{% endblock %}

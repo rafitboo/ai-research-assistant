@@ -249,7 +249,19 @@ def journal_page():
             return redirect(url_for("login"))
     return render_template('journal.html')
 
+@app.route("/literature-matrix")
+def literature_matrix_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
 
+    return render_template(
+        "literature_matrix.html",
+        user=session.get("user")
+    )
+
+@app.route("/projects/<int:project_id>/literature-matrix")
+def project_literature_matrix_redirect(project_id):
+    return redirect(f"/literature-matrix?project_id={project_id}")
 
 @app.route("/projects/<int:project_id>/workspace")
 def project_workspace_view(project_id):
@@ -257,7 +269,11 @@ def project_workspace_view(project_id):
         return redirect(url_for("login"))
     return render_template("project_collab.html", project_id=project_id, user=session.get("user"))
 
-
+@app.route("/projects/<int:project_id>/tasks")
+def task_board_view(project_id):
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("task_board.html", project_id=project_id, user=session.get("user"))
 
 @app.route("/papers/<int:paper_id>/summary")
 def paper_summary_view(paper_id):
@@ -322,6 +338,12 @@ def library_analytics_view():
     if "token" not in session:
         return redirect(url_for("login"))
     return render_template("analytics.html", user=session.get("user"))
+
+@app.route("/notifications")
+def notifications_view():
+    if "token" not in session:
+        return redirect(url_for("login"))
+    return render_template("notifications.html", user=session.get("user"))
 
 @app.route("/billing")
 def billing_dashboard():

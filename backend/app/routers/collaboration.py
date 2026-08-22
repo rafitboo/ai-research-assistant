@@ -33,6 +33,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Project, ProjectMember, ProjectInvitation, DiscussionPost, Notification, User
 from app.auth_utils import get_current_user
+from app.notifications import create_notification, ensure_overdue_milestone_notifications
+from app.audit import log_audit
 
 router = APIRouter(prefix="/api/collaboration", tags=["Collaboration"])
 
@@ -121,6 +123,24 @@ def invite_member(
 
     invitation = ProjectInvitation(project_id=project_id, email=payload.email, role=role, status="Pending")
     db.add(invitation)
+
+    log_audit(
+        db, project_id, user_id,
+        action="invitation.sent",
+        description=f"Invited {payload.email} as {role}.",
+        entity_type="invitation",
+    )
+
+    # Notify the invited person only if they already have an account (Notification.user_id is a real FK).
+    invited_user = db.query(User).filter(User.email == payload.email).first()
+    if invited_user:
+        create_notification(
+            db, invited_user.id,
+            f"You were invited to join '{project.title}' as {role}.",
+            type="project_invitation", title="Project invitation",
+            project_id=project_id,
+        )
+
     db.commit()
     return {"message": "Invitation sent successfully"}
 
@@ -225,6 +245,24 @@ def accept_invitation(
         new_member = ProjectMember(project_id=inv.project_id, user_id=user_id, role=inv.role)
         db.add(new_member)
 
+    project = db.query(Project).filter(Project.id == inv.project_id).first()
+
+    log_audit(
+        db, inv.project_id, user_id,
+        action="member.joined",
+        description=f"{current_user_obj.name} joined as {inv.role}.",
+        entity_type="member",
+        entity_id=user_id,
+    )
+
+    if project:
+        create_notification(
+            db, project.owner_id,
+            f"{current_user_obj.name} accepted your invitation to '{project.title}'.",
+            type="invitation_accepted", title="Invitation accepted",
+            project_id=inv.project_id, reference_id=user_id,
+        )
+
     db.commit()
     return {"message": "Successfully joined the project", "project_id": inv.project_id}
 
@@ -310,6 +348,16 @@ def create_project_post(
     )
     db.add(post)
     db.commit()
+    db.refresh(post)
+
+    author = db.query(User).filter(User.id == user_id).first()
+    log_audit(
+        db, project_id, user_id,
+        action="discussion.posted" if payload.parent_id is None else "discussion.replied",
+        description=f"{author.name if author else 'A member'} posted in the discussion board.",
+        entity_type="post",
+        entity_id=post.id,
+    )
 
     # Parse @mentions (e.g., @RafiulIslam or @Name)
     for word in payload.content.split():
@@ -321,31 +369,75 @@ def create_project_post(
                 .first()
             )
             if mentioned_user and mentioned_user.id != user_id:
-                notif = Notification(
-                    user_id=mentioned_user.id,
-                    message=f"You were mentioned in a project discussion.",
+                create_notification(
+                    db, mentioned_user.id,
+                    "You were mentioned in a project discussion.",
+                    type="mention", title="You were mentioned",
+                    project_id=project_id, reference_id=post.id,
                 )
-                db.add(notif)
-                db.commit()
 
+    db.commit()
     return {"message": "Post created successfully"}
 
 
-# --- Notifications / Dashboard Badge ---
+# --- Notifications / Global Notification Center ---
+
+def _notification_link(n: Notification) -> str:
+    """Best-effort target URL for clicking a notification."""
+    if n.type == "mention" or n.type in ("discussion.posted",):
+        return f"/projects/{n.project_id}/workspace" if n.project_id else "/projects"
+    if n.type in ("milestone_overdue", "milestone_approved", "milestone_revision"):
+        return "/supervision"
+    if n.type in ("project_invitation", "invitation_accepted"):
+        return f"/projects/{n.project_id}/workspace" if n.project_id else "/projects"
+    return "/projects" if n.project_id else "/"
+
 
 @router.get("/notifications")
 def get_notifications(
+    limit: int = 50,
     db: Session = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
     user_id = get_user_id(user)
+    ensure_overdue_milestone_notifications(db, user_id)
+
     notifs = (
         db.query(Notification)
         .filter(Notification.user_id == user_id)
         .order_by(Notification.created_at.desc())
+        .limit(limit)
         .all()
     )
-    return [{"id": n.id, "message": n.message, "is_read": n.is_read, "created_at": n.created_at} for n in notifs]
+    return [
+        {
+            "id": n.id,
+            "type": n.type,
+            "title": n.title,
+            "message": n.message,
+            "is_read": bool(n.is_read),
+            "project_id": n.project_id,
+            "reference_id": n.reference_id,
+            "link": _notification_link(n),
+            "created_at": n.created_at,
+        }
+        for n in notifs
+    ]
+
+
+@router.get("/notifications/unread-count")
+def get_unread_notification_count(
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    ensure_overdue_milestone_notifications(db, user_id)
+    count = (
+        db.query(Notification)
+        .filter(Notification.user_id == user_id, Notification.is_read == 0)
+        .count()
+    )
+    return {"unread_count": count}
 
 
 @router.post("/notifications/{notification_id}/read")
@@ -364,3 +456,16 @@ def mark_notification_read(
         notif.is_read = 1
         db.commit()
     return {"message": "Marked as read"}
+
+
+@router.post("/notifications/mark-all-read")
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    db.query(Notification).filter(
+        Notification.user_id == user_id, Notification.is_read == 0
+    ).update({"is_read": 1})
+    db.commit()
+    return {"message": "All notifications marked as read"}

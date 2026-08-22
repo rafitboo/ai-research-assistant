@@ -10,9 +10,11 @@
     <div class="flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-extrabold text-slate-900">Research Projects</h1>
-            <p class="text-slate-600 text-sm mt-1">Manage named research workspaces and collaborate with team members.</p>
+            <p class="text-slate-600 text-sm mt-1">Manage named research workspaces and collaborate with team members.
+            </p>
         </div>
-        <button onclick="document.getElementById('createProjectModal').classList.remove('hidden')" class="px-5 py-2.5 bg-[#5B3DF5] hover:bg-[#4A3AFF] text-white font-bold rounded-xl shadow-sm transition flex items-center gap-2 text-sm">
+        <button onclick="document.getElementById('createProjectModal').classList.remove('hidden')"
+            class="px-5 py-2.5 bg-[#5B3DF5] hover:bg-[#4A3AFF] text-white font-bold rounded-xl shadow-sm transition flex items-center gap-2 text-sm">
             <span>➕</span> New Project
         </button>
     </div>
@@ -20,93 +22,118 @@
     <!-- Projects Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {% if projects %}
-            {% for project in projects %}
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between">
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between gap-2">
-                        <span class="px-2.5 py-1 text-xs font-bold rounded-lg border {% if project.is_owner %}bg-purple-50 text-purple-700 border-purple-200{% else %}bg-slate-100 text-slate-700 border-slate-200{% endif %}">
-                            {% if project.is_owner %}👑 Owner{% else %}👥 Member{% endif %}
-                        </span>
-                        <span class="text-xs font-semibold text-slate-400">
-                            {{ project.created_at or 'Recently' }}
-                        </span>
-                    </div>
-
-                    <h3 class="font-bold text-slate-900 text-lg leading-snug line-clamp-2" title="{{ project.title }}">
-                        {{ project.title }}
-                    </h3>
-
-                    <p class="text-xs text-slate-600 font-medium line-clamp-3">
-                        {{ project.description or 'No description provided.' }}
-                    </p>
-                </div>
-
-                <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-500 flex items-center gap-1">
-                        👥 {{ project.member_count }} Member{% if project.member_count != 1 %}s{% endif %}
+        {% for project in projects %}
+        <div
+            class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between">
+            <div class="space-y-3">
+                <div class="flex items-center justify-between gap-2">
+                    <span
+                        class="px-2.5 py-1 text-xs font-bold rounded-lg border {% if project.is_owner %}bg-purple-50 text-purple-700 border-purple-200{% else %}bg-slate-100 text-slate-700 border-slate-200{% endif %}">
+                        {% if project.is_owner %}👑 Owner{% else %}👥 Member{% endif %}
                     </span>
-                    <span class="text-xs text-slate-400">
-                        Owner: <strong class="text-slate-700">{{ project.owner_name }}</strong>
+                    <span class="text-xs font-semibold text-slate-400">
+                        {{ project.created_at or 'Recently' }}
                     </span>
                 </div>
-                <div class="pt-3">
-                    <a href="/projects/{{ project.id }}/workspace" class="block text-center text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl py-2 transition">
-                        Open Workspace →
+
+                <h3 class="font-bold text-slate-900 text-lg leading-snug line-clamp-2" title="{{ project.title }}">
+                    {{ project.title }}
+                </h3>
+
+                <p class="text-xs text-slate-600 font-medium line-clamp-3">
+                    {{ project.description or 'No description provided.' }}
+                </p>
+            </div>
+
+            <div class="pt-5 mt-4 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-500 flex items-center gap-1">
+                    👥 {{ project.member_count }} Member{% if project.member_count != 1 %}s{% endif %}
+                </span>
+                <span class="text-xs text-slate-400">
+                    Owner: <strong class="text-slate-700">{{ project.owner_name }}</strong>
+                </span>
+            </div>
+            <div class="pt-3 flex flex-col gap-2">
+                <a href="/projects/{{ project.id }}/workspace"
+                    class="flex-1 block text-center text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl py-2 transition">
+                    Open Workspace →
+                </a>
+                <div class="grid grid-cols-2 gap-2">
+
+                    <a href="/projects/{{ project.id }}/tasks"
+                        class="block text-center text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl py-2 transition">
+                        Task Board →
                     </a>
+
+                    <a href="/projects/{{ project.id }}/literature-matrix"
+                        class="block text-center text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl py-2 transition">
+                        Literature Matrix →
+                    </a>
+
                 </div>
             </div>
-            {% endfor %}
+        </div>
+        {% endfor %}
         {% else %}
-            <div class="col-span-full bg-white p-12 text-center rounded-2xl border border-slate-200 text-slate-500 font-medium space-y-2">
-                <p class="text-3xl">⚙️</p>
-                <p>No active projects found.</p>
-                <p class="text-xs text-slate-400">Click "New Project" above to create your first research workspace.</p>
-            </div>
+        <div
+            class="col-span-full bg-white p-12 text-center rounded-2xl border border-slate-200 text-slate-500 font-medium space-y-2">
+            <p class="text-3xl">⚙️</p>
+            <p>No active projects found.</p>
+            <p class="text-xs text-slate-400">Click "New Project" above to create your first research workspace.</p>
+        </div>
         {% endif %}
     </div>
 </div>
 
 <!-- Create Project Modal -->
-<div id="createProjectModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+<div id="createProjectModal"
+    class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-5">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <h2 class="text-lg font-bold text-slate-900">Create Research Project</h2>
-            <button onclick="document.getElementById('createProjectModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+            <button onclick="document.getElementById('createProjectModal').classList.add('hidden')"
+                class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
 
         <form method="POST" action="/projects/create" class="space-y-4">
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Project Title *</label>
-                <input type="text" name="title" required placeholder="e.g. Federated Learning for Pest Classification" class="w-full px-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" name="title" required placeholder="e.g. Federated Learning for Pest Classification"
+                    class="w-full px-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
 
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Description</label>
-                <textarea name="description" rows="4" placeholder="Briefly describe the research scope, objectives, or dataset..." class="w-full px-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                <textarea name="description" rows="4"
+                    placeholder="Briefly describe the research scope, objectives, or dataset..."
+                    class="w-full px-4 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
             </div>
 
             <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" onclick="document.getElementById('createProjectModal').classList.add('hidden')" class="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancel</button>
-                <button type="submit" class="px-5 py-2 text-sm font-bold text-white bg-[#5B3DF5] rounded-xl hover:bg-[#4A3AFF]">Create Project</button>
+                <button type="button" onclick="document.getElementById('createProjectModal').classList.add('hidden')"
+                    class="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200">Cancel</button>
+                <button type="submit"
+                    class="px-5 py-2 text-sm font-bold text-white bg-[#5B3DF5] rounded-xl hover:bg-[#4A3AFF]">Create
+                    Project</button>
             </div>
         </form>
     </div>
 </div>
 <script>
-(function () {
-  const token = "{{ session.get('token') }}";
-  fetch('http://127.0.0.1:8000/api/collaboration/my-invitations', {
-    headers: { 'Authorization': `Bearer ${token}` }
-  })
-    .then((res) => (res.ok ? res.json() : []))
-    .then((invites) => {
-      if (!invites || invites.length === 0) return;
-      const panel = document.getElementById('my-invitations-panel');
-      const list = document.getElementById('my-invitations-list');
-      panel.classList.remove('hidden');
-      list.innerHTML = invites
-        .map(
-          (inv) => `
+    (function () {
+        const token = "{{ session.get('token') }}";
+        fetch('http://127.0.0.1:8000/api/collaboration/my-invitations', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+            .then((res) => (res.ok ? res.json() : []))
+            .then((invites) => {
+                if (!invites || invites.length === 0) return;
+                const panel = document.getElementById('my-invitations-panel');
+                const list = document.getElementById('my-invitations-list');
+                panel.classList.remove('hidden');
+                list.innerHTML = invites
+                    .map(
+                        (inv) => `
         <div class="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-indigo-100">
           <div>
             <p class="text-sm font-bold text-slate-900">${inv.project_title}</p>
@@ -114,20 +141,20 @@
           </div>
           <button onclick="acceptInvite(${inv.id})" class="text-xs font-bold bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700">Accept</button>
         </div>`
-        )
-        .join('');
-    })
-    .catch((err) => console.error(err));
+                    )
+                    .join('');
+            })
+            .catch((err) => console.error(err));
 
-  window.acceptInvite = function (id) {
-    fetch(`http://127.0.0.1:8000/api/collaboration/invitations/${id}/accept`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then(() => window.location.reload())
-      .catch((err) => console.error(err));
-  };
-})();
+        window.acceptInvite = function (id) {
+            fetch(`http://127.0.0.1:8000/api/collaboration/invitations/${id}/accept`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            })
+                .then((res) => res.json())
+                .then(() => window.location.reload())
+                .catch((err) => console.error(err));
+        };
+    })();
 </script>
 {% endblock %}

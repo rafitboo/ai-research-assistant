@@ -142,8 +142,30 @@ class Notification(Base):
     message = Column(Text, nullable=False)
     is_read = Column(Integer, default=0)  # 0 = unread (triggers badge), 1 = read
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
+    # Added for the Global Notification Center. All nullable so existing
+    # Notification(user_id=..., message=...) call sites keep working unchanged.
+    type = Column(String, nullable=True)         
+    title = Column(String, nullable=True)        
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
+    reference_id = Column(Integer, nullable=True)  
+
     user = relationship("User", backref="notifications")
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    action = Column(String, nullable=False)        
+    entity_type = Column(String, nullable=True)      
+    entity_id = Column(Integer, nullable=True)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    project = relationship("Project", backref="audit_logs")
+    user = relationship("User")
 
 
 class PaperSummary(Base):
@@ -159,8 +181,9 @@ class PaperInsight(Base):
     __tablename__ = "paper_insights"
     id = Column(Integer, primary_key=True, index=True)
     paper_id = Column(Integer, ForeignKey("papers.id", ondelete="CASCADE"))
-    category = Column(String, nullable=False) # contribution, advantage, limitation, future_work
+    category = Column(String, nullable=False) # contribution, advantage, limitation, future_work, hyp_*, gap_*
     content = Column(Text, nullable=False)
+    starred = Column(Integer, default=0)  # 0/1, same pattern as JournalEntry.pinned
 
 class SavedTitle(Base):
     __tablename__ = "saved_titles"
@@ -324,6 +347,38 @@ class ResearchMilestone(Base):
 
     latest_review_comment = Column(Text, nullable=True)
 
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Optional link so a task can automatically populate the milestone timeline.
+    milestone_id = Column(Integer, ForeignKey("research_milestones.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # A task can depend on another task in the same project (nullable = no dependency).
+    depends_on_id = Column(Integer, ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    due_date = Column(Date, nullable=True)
+
+    assignee_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # Kanban column: Todo -> In Progress -> Done
+    status = Column(String(30), nullable=False, default="Todo", index=True)
+
+    # Server-computed/refreshed flag: true once due_date has passed and status != Done
+    is_overdue = Column(Integer, default=0)  # 0/1, same pattern used elsewhere in this codebase
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    project = relationship("Project", backref="tasks")
+    milestone = relationship("ResearchMilestone", backref="tasks")
+    depends_on = relationship("Task", remote_side=[id], backref="blocking_tasks")
 
 class MilestoneReview(Base):
     __tablename__ = "milestone_reviews"
@@ -358,3 +413,174 @@ class MilestoneReview(Base):
         DateTime(timezone=True),
         server_default=func.now()
     )
+
+class LiteratureMatrix(Base):
+    __tablename__ = "literature_matrices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=True
+    )
+
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    user = relationship("User", backref="literature_matrices")
+    project = relationship("Project", backref="literature_matrices")
+
+    papers = relationship(
+        "LiteratureMatrixPaper",
+        back_populates="matrix",
+        cascade="all, delete-orphan"
+    )
+
+    columns = relationship(
+        "LiteratureMatrixColumn",
+        back_populates="matrix",
+        cascade="all, delete-orphan",
+        order_by="LiteratureMatrixColumn.position"
+    )
+
+
+class LiteratureMatrixPaper(Base):
+    __tablename__ = "literature_matrix_papers"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    matrix_id = Column(
+        Integer,
+        ForeignKey("literature_matrices.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    paper_id = Column(
+        Integer,
+        ForeignKey("papers.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    position = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    matrix = relationship(
+        "LiteratureMatrix",
+        back_populates="papers"
+    )
+
+    paper = relationship("Paper")
+
+
+class LiteratureMatrixColumn(Base):
+    __tablename__ = "literature_matrix_columns"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    matrix_id = Column(
+        Integer,
+        ForeignKey("literature_matrices.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    name = Column(
+        String(255),
+        nullable=False
+    )
+
+    key = Column(
+        String(100),
+        nullable=False
+    )
+
+    is_custom = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    position = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    matrix = relationship(
+        "LiteratureMatrix",
+        back_populates="columns"
+    )
+
+    cells = relationship(
+        "LiteratureMatrixCell",
+        back_populates="column",
+        cascade="all, delete-orphan"
+    )
+
+
+class LiteratureMatrixCell(Base):
+    __tablename__ = "literature_matrix_cells"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    matrix_id = Column(
+        Integer,
+        ForeignKey("literature_matrices.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    paper_id = Column(
+        Integer,
+        ForeignKey("papers.id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    column_id = Column(
+        Integer,
+        ForeignKey(
+            "literature_matrix_columns.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False
+    )
+
+    value = Column(
+        Text,
+        nullable=True
+    )
+
+    source = Column(
+        String(30),
+        nullable=False,
+        default="AI"
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    column = relationship(
+        "LiteratureMatrixColumn",
+        back_populates="cells"
+    )
+
+    paper = relationship("Paper")

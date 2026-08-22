@@ -5,6 +5,7 @@ document.addEventListener('alpine:init', () => {
         members: [],
         invitations: [],
         posts: [],
+        auditLog: [],
         inviteEmail: '',
         inviteRole: 'Collaborator',
         newPostContent: '',
@@ -19,6 +20,14 @@ document.addEventListener('alpine:init', () => {
             this.fetchMembers();
             this.fetchInvitations();
             this.fetchPosts();
+            this.fetchAuditLog();
+        },
+
+        async fetchAuditLog() {
+            try {
+                const res = await fetch(`http://127.0.0.1:8000/api/projects/${this.projectId}/audit-log`, { headers: this.authHeaders });
+                if (res.ok) this.auditLog = await res.json();
+            } catch (err) { console.error(err); }
         },
 
         async fetchMembers() {
@@ -44,6 +53,7 @@ document.addEventListener('alpine:init', () => {
                 if (res.ok) {
                     this.inviteEmail = '';
                     this.fetchInvitations();
+                    this.fetchAuditLog();
                 } else {
                     const err = await res.json().catch(() => ({}));
                     alert(err.detail || "Could not send invitation.");
@@ -75,9 +85,10 @@ document.addEventListener('alpine:init', () => {
                     body: JSON.stringify({ content: content, parent_id: parentId })
                 });
                 if (res.ok) {
-                    if (parentId) this.replyBuffers[parentId] = '';
+                    if (parentId) this.replyBuffers[parentId] = '';                    
                     else this.newPostContent = '';
                     this.fetchPosts();
+                    this.fetchAuditLog();
                 }
             } catch (err) { console.error(err); }
         },

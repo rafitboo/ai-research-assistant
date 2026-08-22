@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import Project, ProjectMember, User
 from app.auth_utils import get_current_user
+from app.audit import log_audit
 
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
 
@@ -42,6 +43,15 @@ def create_project(
         role="Owner"
     )
     db.add(owner_member)
+
+    log_audit(
+        db, new_project.id, user_id,
+        action="project.created",
+        description=f"Project '{new_project.title}' was created.",
+        entity_type="project",
+        entity_id=new_project.id,
+    )
+
     db.commit()
 
     return {"message": "Project created successfully", "project_id": new_project.id}

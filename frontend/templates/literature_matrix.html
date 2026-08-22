@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div
+    class="max-w-7xl mx-auto space-y-6"
+    id="literatureMatrixApp"
+>
+
+    <div class="flex items-center justify-between">
+
+        <div>
+            <h1 class="text-3xl font-black text-slate-900">
+                Literature Comparison Matrix
+            </h1>
+
+            <p class="text-sm text-slate-500 mt-1">
+                Compare your research papers using AI-powered extraction.
+            </p>
+        </div>
+
+        <button
+            onclick="openCreateMatrixModal()"
+            class="px-5 py-3 rounded-xl bg-[#5B3DF5] text-white font-bold"
+        >
+            + New Matrix
+        </button>
+
+    </div>
+
+
+    <!-- Matrix selector -->
+
+    <div class="bg-white border border-slate-200 rounded-2xl p-5">
+
+        <label class="text-xs font-bold uppercase text-slate-500">
+            Select Matrix
+        </label>
+
+<div 
+    id="matrixGrid" 
+    class="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+>
+    <!-- Matrix cards render here dynamically -->
+</div>
+
+    </div>
+
+
+    <!-- Matrix workspace -->
+
+    <div
+        id="matrixWorkspace"
+        class="hidden space-y-5"
+    >
+
+        <div class="bg-white border border-slate-200 rounded-2xl p-5">
+
+            <div class="flex justify-between items-start">
+
+                <div>
+
+                    <h2
+                        id="matrixTitle"
+                        class="text-xl font-black text-slate-900"
+                    ></h2>
+
+                    <p
+                        id="matrixDescription"
+                        class="text-sm text-slate-500 mt-1"
+                    ></p>
+
+                </div>
+
+                <div class="flex gap-2">
+
+                    <button
+                        onclick="openPaperModal()"
+                        class="px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold"
+                    >
+                        + Papers
+                    </button>
+
+                    <button
+                        onclick="openColumnModal()"
+                        class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-xl text-sm font-bold"
+                    >
+                        + Custom Column
+                    </button>
+
+                    <button
+                        onclick="analyzeMatrix(event)"
+                        class="px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold"
+                    >
+                        ✨ AI Analyze
+                    </button>
+
+                    <button
+                        onclick="exportMatrix()"
+                        class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold"
+                    >
+                        ↓ CSV
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Matrix -->
+
+        <div class="bg-white border border-slate-200 rounded-2xl overflow-auto">
+
+            <table class="min-w-full text-sm">
+
+                <thead
+                    id="matrixHeader"
+                    class="bg-slate-50 border-b"
+                ></thead>
+
+                <tbody
+                    id="matrixBody"
+                ></tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Create Matrix Modal -->
+
+<div
+    id="createMatrixModal"
+    class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+>
+
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg">
+
+        <h2 class="text-xl font-black mb-5">
+            Create Literature Matrix
+        </h2>
+
+        <input
+            id="newMatrixTitle"
+            type="text"
+            placeholder="Matrix title"
+            class="w-full border rounded-xl px-4 py-3 mb-3"
+        >
+
+        <textarea
+            id="newMatrixDescription"
+            placeholder="Description (optional)"
+            class="w-full border rounded-xl px-4 py-3 mb-5"
+        ></textarea>
+
+        <div class="flex justify-end gap-2">
+
+            <button
+                onclick="closeCreateMatrixModal()"
+                class="px-4 py-2 bg-slate-100 rounded-xl"
+            >
+                Cancel
+            </button>
+
+            <button
+                onclick="createMatrix()"
+                class="px-5 py-2 bg-[#5B3DF5] text-white rounded-xl font-bold"
+            >
+                Create
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Paper Modal -->
+
+<div
+    id="paperModal"
+    class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+>
+
+    <div class="bg-white rounded-2xl p-6 w-full max-w-2xl">
+
+        <div class="flex justify-between mb-5">
+
+            <h2 class="text-xl font-black">
+                Select Papers
+            </h2>
+
+            <button
+                onclick="closePaperModal()"
+                class="text-slate-400"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <div
+            id="paperSelection"
+            class="max-h-96 overflow-y-auto space-y-2"
+        ></div>
+
+        <div class="flex justify-end mt-5">
+
+            <button
+                onclick="addSelectedPapers()"
+                class="px-5 py-2 bg-indigo-600 text-white rounded-xl font-bold"
+            >
+                Add Selected Papers
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Custom Column Modal -->
+
+<div
+    id="columnModal"
+    class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+>
+
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+
+        <h2 class="text-xl font-black mb-5">
+            Add Custom Analysis Column
+        </h2>
+
+        <input
+            id="newColumnName"
+            type="text"
+            placeholder="e.g. Research Gap"
+            class="w-full border rounded-xl px-4 py-3 mb-5"
+        >
+
+        <div class="flex justify-end gap-2">
+
+            <button
+                onclick="closeColumnModal()"
+                class="px-4 py-2 bg-slate-100 rounded-xl"
+            >
+                Cancel
+            </button>
+
+            <button
+                onclick="addCustomColumn()"
+                class="px-5 py-2 bg-indigo-600 text-white rounded-xl font-bold"
+            >
+                Add Column
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+    window.AUTH_TOKEN = "{{ session.get('token') or session.get('access_token', '') }}";
+    window.API_BASE_URL = "http://127.0.0.1:8000";
+</script>
+
+
+<script src="{{ url_for('static', filename='js/literature_matrix.js') }}"></script>
+
+{% endblock %}
