@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex flex-col space-y-3" x-data="{ currentTab: 'abstract' }" x-cloak>
+<!-- Initialize the Alpine component with backend variables -->
+<div class="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex flex-col space-y-3" 
+     x-data="paperWorkspace('{{ paper_id }}', '{{ session.get('token') }}')" 
+     x-cloak>
 
     <!-- Header Title -->
     <div class="flex items-center justify-between px-1">
@@ -50,19 +53,67 @@
             <div class="flex-1 overflow-y-auto p-4">
 
                 <!-- TAB 1: Abstract (default) -->
-                <div x-show="currentTab === 'abstract'" x-cloak class="space-y-3">
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
-                            <span>📑</span> Simplified Paper Abstract
-                        </h3>
-                        <p id="abstract-box" class="text-xs text-slate-700 leading-relaxed whitespace-pre-line italic">
-                            Scanning paper pages for abstract and simplifying...
-                        </p>
+                <div x-show="currentTab === 'abstract'" class="space-y-3">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                        
+                        <!-- Header & Primary Action -->
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                <span>📝</span> Simplified Paper Abstract
+                            </h3>
+                            <button @click="playAudioSummary()" :disabled="audioStatus === 'loading'" 
+                                    class="text-xs bg-[#5B3DF5] text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-75">
+                                <span x-show="audioStatus === 'stopped'">🔊 Listen Audio</span>
+                                <span x-show="audioStatus === 'loading'" class="animate-pulse">⏳ Generating...</span>
+                                <span x-show="audioStatus === 'playing'">⏸️ Pause Audio</span>
+                                <span x-show="audioStatus === 'paused'">🔊 Resume Audio</span>
+                                <span x-show="audioStatus === 'error'">⚠️ Error</span>
+                            </button>
+                        </div>
+
+                        <!-- Audio Customization Bar -->
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <!-- Language Selection -->
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-slate-600">Language:</span>
+                                <select x-model="ttsLang" @change="onLanguageChange()" class="bg-white border border-slate-300 rounded-lg px-2 py-1 font-medium text-slate-700 focus:ring-1 focus:ring-indigo-500">
+                                    <option value="en">🇺🇸 English</option>
+                                    <option value="bn">🇧🇩 বাংলা (Bangla)</option>
+                                </select>
+                            </div>
+
+                            <!-- Voice Accent Selection (Hidden in Bengali) -->
+                            <div x-show="ttsLang === 'en'" class="flex items-center gap-2">
+                                <span class="font-bold text-slate-600">Voice:</span>
+                                <select x-model="ttsAccent" @change="resetAudioPlayback()" class="bg-white border border-slate-300 rounded-lg px-2 py-1 font-medium text-slate-700 focus:ring-1 focus:ring-indigo-500">
+                                    <option value="com">US Accent</option>
+                                    <option value="co.uk">UK Accent</option>
+                                    <option value="co.in">Indian Accent</option>
+                                    <option value="com.au">Australian Accent</option>
+                                </select>
+                            </div>
+
+                            <!-- Playback Speed Controls -->
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-slate-600 mr-1">Speed:</span>
+                                <template x-for="speed in [0.8, 1.0, 1.25, 1.5]">
+                                    <button @click="setAudioSpeed(speed)" x-text="speed + 'x'"
+                                            :class="audioSpeed === speed ? 'bg-indigo-600 text-white font-bold border-indigo-600' : 'bg-white text-slate-600 font-semibold border-slate-200 hover:bg-indigo-50'"
+                                            class="px-2 py-1 border rounded-md transition"></button>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- Abstract Content -->
+                        <p x-text="abstractText" class="text-xs text-slate-700 leading-relaxed whitespace-pre-line" :class="abstractText.includes('Loading') ? 'italic' : ''"></p>
+
+                        <!-- Hidden Audio Player -->
+                        <audio id="audio-player" class="hidden"></audio>
                     </div>
                 </div>
 
                 <!-- TAB 2: Notes -->
-                <div x-show="currentTab === 'notes'" x-cloak class="flex flex-col h-full space-y-3">
+                <div x-show="currentTab === 'notes'" class="flex flex-col h-full space-y-3">
                     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1">
                         <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
                             <span>📝</span> Page-Anchored Notes
@@ -70,37 +121,60 @@
 
                         <div class="space-y-2 mb-3">
                             <div class="flex gap-2">
-                                <input type="number" id="note-page" placeholder="Page" value="1" min="1"
+                                <input type="number" x-model="newPageNum" placeholder="Page" min="1"
                                        class="w-24 px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
-                                <input type="text" id="note-content" placeholder="Write note for this page..."
-                                       class="flex-1 px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500"
-                                       onkeypress="if(event.key === 'Enter') saveNote()">
+                                <input type="text" x-model="newNoteContent" @keypress.enter="saveNote()" placeholder="Write note for this page..."
+                                       class="flex-1 px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500">
                             </div>
-                            <button type="button" onclick="saveNote()" class="w-full bg-slate-800 text-white py-1.5 rounded-xl text-xs font-bold hover:bg-slate-900 transition">Save Note</button>
+                            <button @click="saveNote()" class="w-full bg-slate-800 text-white py-1.5 rounded-xl text-xs font-bold hover:bg-slate-900 transition">Save Note</button>
                         </div>
 
-                        <div id="notes-container" class="space-y-2 overflow-y-auto pr-1 flex-1">
-                            <p class="text-xs text-slate-400 italic text-center py-2">No notes added yet for this session.</p>
+                        <div class="space-y-2 overflow-y-auto pr-1 flex-1">
+                            <template x-if="notes.length === 0">
+                                <p class="text-xs text-slate-400 italic text-center py-2">No notes added yet for this session.</p>
+                            </template>
+                            <template x-for="n in notes" :key="n.id || n.note_content">
+                                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+                                    <span class="font-bold text-indigo-600" x-text="'Page ' + n.page_number + ':'"></span>
+                                    <span class="text-slate-700 ml-1" x-text="n.note_content"></span>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
 
                 <!-- TAB 3: Chatbot -->
-                <div x-show="currentTab === 'chat'" x-cloak class="flex flex-col h-full space-y-3">
+                <div x-show="currentTab === 'chat'" class="flex flex-col h-full space-y-3">
                     <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-[350px]">
                         <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2 mb-3">
                             <span>🤖</span> Gemini AI Chatbot
                         </h3>
 
                         <div id="chat-messages" class="flex-1 space-y-3 overflow-y-auto mb-3 pr-1 max-h-[280px]">
-                            <div class="text-left text-xs text-slate-400 italic">Ask any question about this paper...</div>
+                            <template x-for="(msg, index) in messages" :key="index">
+                                <div :class="msg.sender === 'user' ? 'text-right' : 'text-left'">
+                                    <div :class="msg.sender === 'user' ? 'bg-[#5B3DF5] text-white' : 'bg-slate-100 text-slate-800'"
+                                         class="inline-block p-3 rounded-2xl max-w-[90%] text-xs text-left shadow-sm">
+                                        <p class="leading-relaxed" x-text="msg.text"></p>
+                                        <template x-if="msg.source">
+                                            <div class="mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 inline-block">
+                                                📌 Source: <span x-text="msg.source"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <!-- Loading Indicator -->
+                            <template x-if="chatLoading">
+                                <div class="text-left text-xs text-slate-400 italic animate-pulse">Gemini is thinking...</div>
+                            </template>
                         </div>
 
                         <div class="flex gap-2 pt-2 border-t border-slate-100 mt-auto">
-                            <input type="text" id="chat-input" placeholder="Ask about dataset, methodology..."
-                                   class="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                   onkeypress="if(event.key === 'Enter') sendChat()">
-                            <button type="button" onclick="sendChat()" class="bg-[#5B3DF5] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#4A3AFF] transition">Send</button>
+                            <input type="text" x-model="chatQuery" @keypress.enter="sendChatMessage()" placeholder="Ask about dataset, methodology..."
+                                   class="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <button @click="sendChatMessage()" :disabled="chatLoading" class="bg-[#5B3DF5] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#4A3AFF] transition disabled:opacity-50">Send</button>
                         </div>
                     </div>
                 </div>
@@ -110,131 +184,5 @@
         </div>
     </div>
 </div>
-
-<!-- Vanilla JS Logic for API interaction -->
-<script>
-    const paperId = "{{ paper_id }}";
-    const authToken = "{{ session.get('token') }}";
-    const apiBase = "http://127.0.0.1:8000/api";
-
-    document.addEventListener("DOMContentLoaded", () => {
-        fetch(`${apiBase}/papers/${paperId}/overview`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        })
-        .then(res => res.json())
-        .then(data => {
-            const box = document.getElementById('abstract-box');
-            box.innerText = data.abstract || "No abstract found.";
-            box.classList.remove('italic');
-        })
-        .catch(err => {
-            document.getElementById('abstract-box').innerText = "Failed to load simplified abstract.";
-        });
-
-        loadNotes();
-    });
-
-    function loadNotes() {
-        fetch(`${apiBase}/papers/${paperId}/notes`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        })
-        .then(res => res.json())
-        .then(notes => {
-            const container = document.getElementById('notes-container');
-            if (notes.length > 0) {
-                container.innerHTML = notes.map(n => `
-                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
-                        <span class="font-bold text-indigo-600">Page ${n.page_number}:</span>
-                        <span class="text-slate-700 ml-1">${n.note_content}</span>
-                    </div>
-                `).join('');
-            } else {
-                container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-2">No notes added yet for this session.</p>`;
-            }
-        })
-        .catch(err => {
-            console.error("Failed to load notes:", err);
-        });
-    }
-
-    function saveNote() {
-        const pageNum = document.getElementById('note-page').value;
-        const content = document.getElementById('note-content').value;
-        if (!content.trim()) return;
-
-        fetch(`${apiBase}/papers/${paperId}/notes`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ page_number: parseInt(pageNum) || 1, note_content: content })
-        })
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('note-content').value = '';
-            loadNotes();
-        })
-        .catch(err => alert("Failed to save note."));
-    }
-
-    function sendChat() {
-        const input = document.getElementById('chat-input');
-        const query = input.value.trim();
-        if (!query) return;
-
-        const chatContainer = document.getElementById('chat-messages');
-
-        chatContainer.innerHTML += `
-            <div class="text-right">
-                <div class="inline-block bg-[#5B3DF5] text-white p-3 rounded-2xl max-w-[90%] text-xs text-left shadow-sm">
-                    <p class="leading-relaxed">${query}</p>
-                </div>
-            </div>
-        `;
-        input.value = '';
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-
-        const loadingId = 'loading-' + Date.now();
-        chatContainer.innerHTML += `
-            <div id="${loadingId}" class="text-left text-xs text-slate-400 italic animate-pulse">Gemini is thinking...</div>
-        `;
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-
-        fetch(`${apiBase}/papers/${paperId}/chat`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ question: query })
-        })
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById(loadingId).remove();
-
-            let sourceHtml = data.source ? `
-                <div class="mt-2 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 inline-block">
-                    📌 Source: ${data.source}
-                </div>
-            ` : '';
-
-            chatContainer.innerHTML += `
-                <div class="text-left">
-                    <div class="inline-block bg-slate-100 text-slate-800 p-3 rounded-2xl max-w-[90%] text-xs text-left shadow-sm">
-                        <p class="leading-relaxed">${data.answer}</p>
-                        ${sourceHtml}
-                    </div>
-                </div>
-            `;
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        })
-        .catch(err => {
-            document.getElementById(loadingId).remove();
-            chatContainer.innerHTML += `
-                <div class="text-left text-xs text-red-500">Error connecting to AI service.</div>
-            `;
-        });
-    }
-</script>
+<script src="{{ url_for('static', filename='js/paper_workspace.js') }}"></script>
 {% endblock %}

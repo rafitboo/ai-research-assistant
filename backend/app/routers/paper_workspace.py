@@ -6,6 +6,13 @@ from app.database import get_db
 from app.models import Paper, PageNote, User
 from app.auth_utils import get_current_user
 import google.generativeai as genai
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+from gtts import gTTS
+from typing import Optional
+
+
+
 
 router = APIRouter(prefix="/api/papers", tags=["Paper Workspace"])
 
@@ -47,7 +54,12 @@ class NoteCreateSchema(BaseModel):
 
 class ChatQuerySchema(BaseModel):
     question: str
-
+class TTSRequest(BaseModel):
+    text: str
+    lang: Optional[str] = "en"       # "en" or "bn"
+    accent: Optional[str] = "com"
+    
+    
 @router.get("/{paper_id}/overview")
 def get_paper_overview(paper_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     paper = db.query(Paper).filter(Paper.id == paper_id).first()
@@ -55,7 +67,6 @@ def get_paper_overview(paper_id: int, db: Session = Depends(get_db), current_use
         raise HTTPException(status_code=404, detail="Paper not found")
     
     file_path = getattr(paper, "file_path", None)
-    # Scan up to 15 pages to find the abstract section across thesis front matter
     pdf_text = extract_pdf_text(file_path, max_pages=15) if file_path else ""
     
     abstract_text = ""
@@ -135,3 +146,43 @@ def chat_with_paper(paper_id: int, data: ChatQuerySchema, db: Session = Depends(
         "answer": answer,
         # "source": source_reference
     }
+    
+@router.post("/tts")
+def generate_audio_summary(data: TTSRequest, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    enforce_premium_access(current_user, db)
+    
+    if not data.text or len(data.text.strip()) == 0:
+        raise HTTPException(status_code=400, detail="No text provided for audio generation.")
+
+    try:
+        spoken_text = data.text
+
+        # If Bengali is requested, translate the abstract with Gemini first
+        if data.lang == "bn":
+            if GEMINI_API_KEY:
+                model = genai.GenerativeModel("gemini-3.6-flash")
+                translate_prompt = f"""
+                Translate the following academic research abstract into fluent, clear, and natural Bengali (বাংলা).
+                Output only the plain Bengali text translation without any markdown symbols or formatting.
+
+                Text:
+                {data.text}
+                """
+                res = model.generate_content(translate_prompt)
+                spoken_text = res.text if res.text else data.text
+
+            tts = gTTS(text=spoken_text, lang='bn', slow=False)
+        else:
+            # English with regional voice accent
+            tld_accent = data.accent if data.accent in ["com", "co.uk", "co.in", "com.au"] else "com"
+            tts = gTTS(text=spoken_text, lang='en', tld=tld_accent, slow=False)
+
+        # In-memory buffer streaming
+        audio_buffer = BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)
+        
+        return StreamingResponse(audio_buffer, media_type="audio/mpeg")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Audio generation failed: {str(e)}")
