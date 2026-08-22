@@ -10,7 +10,7 @@ from io import BytesIO
 from fastapi.responses import StreamingResponse
 from gtts import gTTS
 from typing import Optional
-
+from deep_translator import GoogleTranslator
 
 
 
@@ -157,23 +157,12 @@ def generate_audio_summary(data: TTSRequest, db: Session = Depends(get_db), curr
     try:
         spoken_text = data.text
 
-        # If Bengali is requested, translate the abstract with Gemini first
         if data.lang == "bn":
-            if GEMINI_API_KEY:
-                model = genai.GenerativeModel("gemini-3.6-flash")
-                translate_prompt = f"""
-                Translate the following academic research abstract into fluent, clear, and natural Bengali (বাংলা).
-                Output only the plain Bengali text translation without any markdown symbols or formatting.
-
-                Text:
-                {data.text}
-                """
-                res = model.generate_content(translate_prompt)
-                spoken_text = res.text if res.text else data.text
-
+            # Translates English to Bengali
+            spoken_text = GoogleTranslator(source='en', target='bn').translate(data.text)
             tts = gTTS(text=spoken_text, lang='bn', slow=False)
         else:
-            # English with regional voice accent
+            # English with regional voice
             tld_accent = data.accent if data.accent in ["com", "co.uk", "co.in", "com.au"] else "com"
             tts = gTTS(text=spoken_text, lang='en', tld=tld_accent, slow=False)
 
