@@ -19,7 +19,7 @@ document.addEventListener('alpine:init', () => {
         init() { this.fetchNotifications(); },
         async fetchNotifications() {
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/collaboration/notifications?limit=200', { headers: this.authHeaders });
+                const res = await fetch('/api/collaboration/notifications?limit=200', { headers: this.authHeaders });
                 if (res.ok) this.notifications = await res.json();
             } catch (err) { console.error(err); }
         },
@@ -27,12 +27,12 @@ document.addEventListener('alpine:init', () => {
             if (n.is_read) return;
             n.is_read = true;
             try {
-                await fetch(`http://127.0.0.1:8000/api/collaboration/notifications/${n.id}/read`, { method: 'POST', headers: this.authHeaders });
+                await fetch(`/api/collaboration/notifications/${n.id}/read`, { method: 'POST', headers: this.authHeaders });
             } catch (err) { console.error(err); }
         },
         async markAllRead() {
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/collaboration/notifications/mark-all-read', { method: 'POST', headers: this.authHeaders });
+                const res = await fetch('/api/collaboration/notifications/mark-all-read', { method: 'POST', headers: this.authHeaders });
                 if (res.ok) this.notifications.forEach(n => n.is_read = true);
             } catch (err) { console.error(err); }
         },

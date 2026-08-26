@@ -1,5 +1,5 @@
 const API_BASE = window.API_BASE_URL || "http://127.0.0.1:8000";
-const API = `${API_BASE}/api/literature-matrix`;
+const API = `/api/literature-matrix`;
 const TOKEN = window.AUTH_TOKEN;
 
 let currentMatrixId = null;
@@ -15,8 +15,7 @@ function headers() {
 
 
 async function api(url, options = {}) {
-    const baseUrl = window.API_BASE_URL || "http://127.0.0.1:8000";
-    const fullUrl = url.startsWith("http") ? url : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`;
+    const fullUrl = url
 
     const token = window.AUTH_TOKEN 
         || (typeof headers === "function" ? headers().Authorization : null);

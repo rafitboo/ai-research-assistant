@@ -11,8 +11,8 @@ document.addEventListener('alpine:init', () => {
         selectedTask: null,
         dragTaskId: null,
         form: { title: '', description: '', due_date: '', milestone_id: '', new_milestone_title: '', depends_on_id: '', assignee_id: '' },
-        apiBaseUrl: 'http://127.0.0.1:8000/api/task-board',
-        collabApiBaseUrl: 'http://127.0.0.1:8000/api/collaboration',
+        apiBaseUrl: '/api/task-board',
+        collabApiBaseUrl: '/api/collaboration',
 
         get authHeaders() {
             return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.authToken}` };
@@ -93,7 +93,7 @@ document.addEventListener('alpine:init', () => {
 
         async fetchMilestones() {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/supervisor-portal/projects/${this.projectId}/milestones`, { headers: this.authHeaders });
+                const res = await fetch(`/api/supervisor-portal/projects/${this.projectId}/milestones`, { headers: this.authHeaders });
                 if (res.ok) this.milestones = await res.json();
             } catch (err) { console.error(err); }
         },

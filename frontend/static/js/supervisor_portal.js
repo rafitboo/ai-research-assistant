@@ -1,7 +1,7 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('supervisorPortalApp', (token) => ({
         authToken: token,
-        apiBaseUrl: 'http://127.0.0.1:8000/api/supervisor-portal',
+        apiBaseUrl: '/api/supervisor-portal',
 
         projects: [],
         supervisors: [],
@@ -58,7 +58,7 @@ document.addEventListener('alpine:init', () => {
 
         async init() {
             try {
-                const me = await this.request('/auth/me', 'GET', null, 'http://127.0.0.1:8000/api');
+                const me = await this.request('/auth/me', 'GET', null, '/api');
                 this.currentUserId = me.id;
                 this.currentUserRole = me.role;
             } catch (_) {

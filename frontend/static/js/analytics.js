@@ -32,7 +32,7 @@ document.addEventListener('alpine:init', () => {
         async fetchAnalytics() {
             this.isLoading = true;
             try {
-                let url = `http://127.0.0.1:8000/api/analytics/dashboard`;
+                let url = `/api/analytics/dashboard`;
                 if (this.selectedDays !== null) {
                     url += `?days=${this.selectedDays}`;
                 }

@@ -22,7 +22,7 @@ document.addEventListener('alpine:init', () => {
             tags: ''
         },
 
-        apiBaseUrl: 'http://127.0.0.1:8000/api/journal',
+        apiBaseUrl: '/api/journal',
 
         get authHeaders() {
             return {

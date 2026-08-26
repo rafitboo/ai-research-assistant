@@ -22,13 +22,13 @@ document.addEventListener('alpine:init', () => {
 
         async fetchUnreadCount() {
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/collaboration/notifications/unread-count', { headers: this.authHeaders });
+                const res = await fetch('/api/collaboration/notifications/unread-count', { headers: this.authHeaders });
                 if (res.ok) { const json = await res.json(); this.unreadCount = json.unread_count; }
             } catch (err) { console.error(err); }
         },
         async fetchNotifications() {
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/collaboration/notifications', { headers: this.authHeaders });
+                const res = await fetch('/api/collaboration/notifications', { headers: this.authHeaders });
                 if (res.ok) this.notifications = await res.json();
             } catch (err) { console.error(err); }
         },
@@ -37,12 +37,12 @@ document.addEventListener('alpine:init', () => {
             n.is_read = true;
             this.unreadCount = Math.max(0, this.unreadCount - 1);
             try {
-                await fetch(`http://127.0.0.1:8000/api/collaboration/notifications/${n.id}/read`, { method: 'POST', headers: this.authHeaders });
+                await fetch(`/api/collaboration/notifications/${n.id}/read`, { method: 'POST', headers: this.authHeaders });
             } catch (err) { console.error(err); }
         },
         async markAllRead() {
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/collaboration/notifications/mark-all-read', { method: 'POST', headers: this.authHeaders });
+                const res = await fetch('/api/collaboration/notifications/mark-all-read', { method: 'POST', headers: this.authHeaders });
                 if (res.ok) {
                     this.notifications.forEach(n => n.is_read = true);
                     this.unreadCount = 0;

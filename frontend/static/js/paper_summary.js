@@ -8,7 +8,7 @@ document.addEventListener('alpine:init', () => {
         insights: { contribution: [], advantage: [], limitation: [], future_work: [] },
         editingId: null,
         editBuffer: '',
-        apiBaseUrl: 'http://127.0.0.1:8000/api/ai/summary',
+        apiBaseUrl: '/api/ai/summary',
         get authHeaders() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.authToken}` }; },
         init() { this.fetchData(); },
         async fetchData() {
@@ -34,7 +34,7 @@ document.addEventListener('alpine:init', () => {
         async saveEdit(insight) {
             if (!this.editBuffer.trim()) return;
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${insight.id}`, {
+                const res = await fetch(`/api/ai/insights/${insight.id}`, {
                     method: 'PUT', headers: this.authHeaders, body: JSON.stringify({ content: this.editBuffer })
                 });
                 if (res.ok) { insight.content = this.editBuffer; this.editingId = null; }

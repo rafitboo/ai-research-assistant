@@ -31,7 +31,7 @@ document.addEventListener('alpine:init', () => {
         async fetchStatus() {
             this.isLoading = true;
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/billing/status`, { headers: this.headers });
+                const res = await fetch(`/api/billing/status`, { headers: this.headers });
                 if (res.ok) {
                     this.statusData = await res.json();
                 }
@@ -45,7 +45,7 @@ document.addEventListener('alpine:init', () => {
         async initiatePayment() {
             this.isCheckingOut = true;
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/billing/initiate-payment`, { 
+                const res = await fetch(`/api/billing/initiate-payment`, { 
                     method: 'POST',
                     headers: this.headers 
                 });
@@ -73,7 +73,7 @@ document.addEventListener('alpine:init', () => {
             
             this.isCanceling = true;
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/billing/cancel-subscription`, { 
+                const res = await fetch(`/api/billing/cancel-subscription`, { 
                     method: 'POST',
                     headers: this.headers 
                 });

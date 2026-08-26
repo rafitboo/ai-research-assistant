@@ -50,7 +50,7 @@ document.addEventListener('alpine:init', () => {
         async searchPapers() {
             if (this.paperQuery.trim().length < 2) { this.paperSuggestions = []; return; }
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/journal/autocomplete-papers?q=${encodeURIComponent(this.paperQuery)}`, { headers: this.authHeaders });
+                const res = await fetch(`/api/journal/autocomplete-papers?q=${encodeURIComponent(this.paperQuery)}`, { headers: this.authHeaders });
                 if (res.ok) this.paperSuggestions = await res.json();
             } catch (err) { console.error(err); }
         },
@@ -65,7 +65,8 @@ document.addEventListener('alpine:init', () => {
             this.summaryError = '';
             try {
                 const paperId = this.selectedPaper.id;
-                const genRes = await fetch(`http://127.0.0.1:8000/api/ai/summary/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
+                const genRes = await fetch(`
+                    /api/ai/summary/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
                 if (!genRes.ok) {
                     const err = await genRes.json().catch(() => ({}));
                     this.summaryError = err.detail || `Request failed (${genRes.status})`;
@@ -73,7 +74,7 @@ document.addEventListener('alpine:init', () => {
                     this.isSummarizing = false;
                     return;
                 }
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/summary/${paperId}`, { headers: this.authHeaders });
+                const res = await fetch(`/api/ai/summary/${paperId}`, { headers: this.authHeaders });
                 const json = await res.json();
                 if (json.status === 'exists') this.summaryResult = json.data;
             } catch (err) {
@@ -88,7 +89,7 @@ document.addEventListener('alpine:init', () => {
             this.isGeneratingTitles = true;
             this.titlesError = '';
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/ai/titles/generate', {
+                const res = await fetch('/api/ai/titles/generate', {
                     method: 'POST', headers: this.authHeaders, body: JSON.stringify({ topic: this.topicInput })
                 });
                 if (res.ok) {
@@ -107,7 +108,7 @@ document.addEventListener('alpine:init', () => {
         
         async saveTitle(titleText) {
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/ai/titles/save', {
+                const res = await fetch('/api/ai/titles/save', {
                     method: 'POST', headers: this.authHeaders, body: JSON.stringify({ title_text: titleText })
                 });
                 if (res.ok) { await this.fetchSavedTitles(); }
@@ -115,7 +116,7 @@ document.addEventListener('alpine:init', () => {
         },
         async fetchSavedTitles() {
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/ai/titles/saved', { headers: this.authHeaders });
+                const res = await fetch('/api/ai/titles/saved', { headers: this.authHeaders });
                 if (res.ok) this.savedTitles = await res.json();
             } catch (err) { console.error(err); }
         },
@@ -125,7 +126,7 @@ document.addEventListener('alpine:init', () => {
             const s = this[toolKey];
             if (s.paperQuery.trim().length < 2) { s.paperSuggestions = []; return; }
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/journal/autocomplete-papers?q=${encodeURIComponent(s.paperQuery)}`, { headers: this.authHeaders });
+                const res = await fetch(`/api/journal/autocomplete-papers?q=${encodeURIComponent(s.paperQuery)}`, { headers: this.authHeaders });
                 if (res.ok) s.paperSuggestions = await res.json();
             } catch (err) { console.error(err); }
         },
@@ -143,14 +144,14 @@ document.addEventListener('alpine:init', () => {
             s.isRunning = true; s.error = '';
             try {
                 const paperId = s.selectedPaper.id;
-                const genRes = await fetch(`http://127.0.0.1:8000/api/ai/summary/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
+                const genRes = await fetch(`/api/ai/summary/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
                 if (!genRes.ok) {
                     const err = await genRes.json().catch(() => ({}));
                     s.error = err.detail || `Request failed (${genRes.status})`;
                     s.isRunning = false;
                     return;
                 }
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/summary/${paperId}`, { headers: this.authHeaders });
+                const res = await fetch(`/api/ai/summary/${paperId}`, { headers: this.authHeaders });
                 const json = await res.json();
                 if (json.status === 'exists') s.data = json.data.insights;
             } catch (err) { s.error = err.message; console.error(err); }
@@ -164,14 +165,14 @@ document.addEventListener('alpine:init', () => {
             s.isRunning = true; s.error = '';
             try {
                 const paperId = s.selectedPaper.id;
-                const genRes = await fetch(`http://127.0.0.1:8000/api/ai/hypothesis/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
+                const genRes = await fetch(`/api/ai/hypothesis/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
                 if (!genRes.ok) {
                     const err = await genRes.json().catch(() => ({}));
                     s.error = err.detail || `Request failed (${genRes.status})`;
                     s.isRunning = false;
                     return;
                 }
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/hypothesis/${paperId}`, { headers: this.authHeaders });
+                const res = await fetch(`/api/ai/hypothesis/${paperId}`, { headers: this.authHeaders });
                 const json = await res.json();
                 if (json.status === 'exists') s.data = json.data;
             } catch (err) { s.error = err.message; console.error(err); }
@@ -185,14 +186,14 @@ document.addEventListener('alpine:init', () => {
             s.isRunning = true; s.error = '';
             try {
                 const paperId = s.selectedPaper.id;
-                const genRes = await fetch(`http://127.0.0.1:8000/api/ai/gaps/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
+                const genRes = await fetch(`/api/ai/gaps/${paperId}/generate`, { method: 'POST', headers: this.authHeaders });
                 if (!genRes.ok) {
                     const err = await genRes.json().catch(() => ({}));
                     s.error = err.detail || `Request failed (${genRes.status})`;
                     s.isRunning = false;
                     return;
                 }
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/gaps/${paperId}`, { headers: this.authHeaders });
+                const res = await fetch(`/api/ai/gaps/${paperId}`, { headers: this.authHeaders });
                 const json = await res.json();
                 if (json.status === 'exists') s.data = json.data;
             } catch (err) { s.error = err.message; console.error(err); }
@@ -204,7 +205,7 @@ document.addEventListener('alpine:init', () => {
             this.starred.isLoading = true;
             this.starred.error = '';
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/ai/starred', { headers: this.authHeaders });
+                const res = await fetch('/api/ai/starred', { headers: this.authHeaders });
                 if (res.ok) {
                     this.starred.data = await res.json();
                 } else {
@@ -219,7 +220,7 @@ document.addEventListener('alpine:init', () => {
         },
         async unstarItem(categoryKey, item) {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}/star`, { method: 'POST', headers: this.authHeaders });
+                const res = await fetch(`/api/ai/insights/${item.id}/star`, { method: 'POST', headers: this.authHeaders });
                 if (res.ok) {
                     this.starred.data[categoryKey] = this.starred.data[categoryKey].filter(i => i.id !== item.id);
                 }
@@ -227,7 +228,7 @@ document.addEventListener('alpine:init', () => {
         },
         async unstarTitle(item) {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/titles/saved/${item.id}`, { method: 'DELETE', headers: this.authHeaders });
+                const res = await fetch(`/api/ai/titles/saved/${item.id}`, { method: 'DELETE', headers: this.authHeaders });
                 if (res.ok) {
                     this.starred.data.titles = this.starred.data.titles.filter(i => i.id !== item.id);
                 }
@@ -237,7 +238,7 @@ document.addEventListener('alpine:init', () => {
         // --- Per-point actions shared by Extract Insights, Hypothesis Generator, Research Gap Finder ---
         async toggleStar(item) {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}/star`, { method: 'POST', headers: this.authHeaders });
+                const res = await fetch(`/api/ai/insights/${item.id}/star`, { method: 'POST', headers: this.authHeaders });
                 if (res.ok) { const json = await res.json(); item.starred = json.starred; }
             } catch (err) { console.error(err); }
         },
@@ -246,7 +247,7 @@ document.addEventListener('alpine:init', () => {
         async saveEdit(item) {
             if (!item._editBuffer || !item._editBuffer.trim()) return;
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}`, {
+                const res = await fetch(`/api/ai/insights/${item.id}`, {
                     method: 'PUT', headers: this.authHeaders, body: JSON.stringify({ content: item._editBuffer })
                 });
                 if (res.ok) { item.content = item._editBuffer; item._editing = false; }
@@ -256,7 +257,7 @@ document.addEventListener('alpine:init', () => {
             item._regenerating = true;
             item._regenError = '';
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/ai/insights/${item.id}/regenerate`, { method: 'POST', headers: this.authHeaders });
+                const res = await fetch(`/api/ai/insights/${item.id}/regenerate`, { method: 'POST', headers: this.authHeaders });
                 if (res.ok) {
                     const json = await res.json();
                     item.content = json.content;

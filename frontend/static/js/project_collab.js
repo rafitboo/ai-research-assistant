@@ -10,7 +10,7 @@ document.addEventListener('alpine:init', () => {
         inviteRole: 'Collaborator',
         newPostContent: '',
         replyBuffers: {},
-        apiBaseUrl: 'http://127.0.0.1:8000/api/collaboration',
+        apiBaseUrl: '/api/collaboration',
 
         get authHeaders() {
             return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.authToken}` };
@@ -25,7 +25,7 @@ document.addEventListener('alpine:init', () => {
 
         async fetchAuditLog() {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/projects/${this.projectId}/audit-log`, { headers: this.authHeaders });
+                const res = await fetch(`/api/projects/${this.projectId}/audit-log`, { headers: this.authHeaders });
                 if (res.ok) this.auditLog = await res.json();
             } catch (err) { console.error(err); }
         },

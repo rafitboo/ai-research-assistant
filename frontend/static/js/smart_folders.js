@@ -17,7 +17,7 @@ document.addEventListener('alpine:init', () => {
         libraryPapers: [],
         isLoadingLibrary: false,
 
-        apiBase: 'http://127.0.0.1:8000/api/smart-folders',
+        apiBase: '/api/smart-folders',
         
         get headers() {
             return {
@@ -169,7 +169,7 @@ document.addEventListener('alpine:init', () => {
             if (this.libraryPapers.length === 0) {
                 this.isLoadingLibrary = true;
                 try {
-                    const res = await fetch(`http://127.0.0.1:8000/api/papers/`, { headers: this.headers });
+                    const res = await fetch(`/api/papers/`, { headers: this.headers });
                     if (res.ok) this.libraryPapers = await res.json();
                 } catch (err) { console.error(err); } 
                 finally { this.isLoadingLibrary = false; }

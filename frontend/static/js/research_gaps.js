@@ -11,7 +11,7 @@ document.addEventListener("alpine:init", () => {
         hasGenerated: false,
 
         get apiBaseUrl() {
-            return "http://127.0.0.1:8000/api";
+            return "/api";
         },
 
         get authHeaders() {

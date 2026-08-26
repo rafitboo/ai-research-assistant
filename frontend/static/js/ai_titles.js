@@ -5,7 +5,7 @@ document.addEventListener('alpine:init', () => {
         isGenerating: false,
         generatedTitles: [],
         savedTitles: [],
-        apiBaseUrl: 'http://127.0.0.1:8000/api/ai/titles',
+        apiBaseUrl: '/api/ai/titles',
         get authHeaders() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.authToken}` }; },
         init() { this.fetchSavedTitles(); },
         async generateTitles() {

@@ -47,7 +47,7 @@ document.addEventListener('alpine:init', () => {
 
         async loadAbstract() {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/papers/${this.paperId}/overview`, { headers: this.headers });
+                const res = await fetch(`/api/papers/${this.paperId}/overview`, { headers: this.headers });
                 const data = await res.json();
                 this.abstractText = data.abstract || "No abstract available for this paper.";
             } catch (err) {
@@ -57,7 +57,7 @@ document.addEventListener('alpine:init', () => {
 
         async loadNotes() {
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/papers/${this.paperId}/notes`, { headers: this.headers });
+                const res = await fetch(`/api/papers/${this.paperId}/notes`, { headers: this.headers });
                 this.notes = await res.json();
             } catch (err) {
                 console.error("Error loading notes", err);
@@ -67,7 +67,7 @@ document.addEventListener('alpine:init', () => {
         async saveNote() {
             if (!this.newNoteContent.trim()) return;
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/papers/${this.paperId}/notes`, {
+                const res = await fetch(`/api/papers/${this.paperId}/notes`, {
                     method: 'POST',
                     headers: this.headers,
                     body: JSON.stringify({
@@ -99,7 +99,7 @@ document.addEventListener('alpine:init', () => {
             this.scrollToBottom();
 
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/papers/${this.paperId}/chat`, {
+                const res = await fetch(`/api/papers/${this.paperId}/chat`, {
                     method: 'POST',
                     headers: this.headers,
                     body: JSON.stringify({ question: q })
@@ -170,7 +170,7 @@ document.addEventListener('alpine:init', () => {
             this.audioStatus = 'loading';
 
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/papers/tts`, {
+                const res = await fetch(`/api/papers/tts`, {
                     method: 'POST',
                     headers: this.headers,
                     body: JSON.stringify({ 
