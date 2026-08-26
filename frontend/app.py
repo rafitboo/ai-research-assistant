@@ -1,11 +1,22 @@
+import sys
+import os
+
+# 1. Force Vercel to recognize the 'frontend' folder
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import httpx
-from frontend.reading_progress_routes import reading_progress_bp
+
+# 2. Revert to standard local import now that sys.path is fixed
+from reading_progress_routes import reading_progress_bp
 
 app = Flask(__name__)
 app.secret_key = "cse471_super_secret_flask_key_bracu"
 
-API_BASE_URL = "http://127.0.0.1:8000/api"
+# 3. FIX FOR CONNECTION ERROR: Point to your live Vercel FastAPI backend
+API_BASE_URL = "https://ai-research-assistant-theta-nine.vercel.app/api"
 
 app.register_blueprint(reading_progress_bp)  
 
