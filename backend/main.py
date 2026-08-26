@@ -1,3 +1,13 @@
+import sys
+import os
+
+# Force Vercel to recognize the correct pathing for your backend modules
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
