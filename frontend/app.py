@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import httpx
-from reading_progress_routes import reading_progress_bp
+from frontend.reading_progress_routes import reading_progress_bp
 
 app = Flask(__name__)
 app.secret_key = "cse471_super_secret_flask_key_bracu"
