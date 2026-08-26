@@ -52,14 +52,22 @@ def login():
         
         try:
             response = httpx.post(f"{API_BASE_URL}/auth/login", json={"email": email, "password": password})
+            
+            # Check if response is valid JSON
+            try:
+                res_data = response.json()
+            except Exception:
+                # If FastAPI crashed, it returns HTML. Show that error text!
+                flash(f"Server Error ({response.status_code}): {response.text[:200]}", "error")
+                return render_template("login.html")
+
             if response.status_code == 200:
-                data = response.json()
-                session["token"] = data["token"]
-                session["user"] = data["user"]
+                session["token"] = res_data["token"]
+                session["user"] = res_data["user"]
                 flash("Login successful!", "success")
                 return redirect(url_for("index"))
             else:
-                error_msg = response.json().get("detail", "Login failed")
+                error_msg = res_data.get("detail", "Login failed")
                 flash(error_msg, "error")
         except Exception as e:
             flash(f"Connection error: {str(e)}", "error")
